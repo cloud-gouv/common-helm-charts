@@ -79,7 +79,7 @@ releases:
 ```yaml
 repositories:
   - name: common
-    url: git+https://github.com/cloud-gouv/common-helm-charts.git?ref={{ .Values.common_charts.version | default "main" }}
+    url: git+https://github.com/cloud-gouv/common-helm-charts.git@.?ref={{ .Values.common_charts.version | default "main" }}
 
 releases:
 - name: ingress-auth
