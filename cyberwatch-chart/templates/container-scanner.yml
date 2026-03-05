@@ -1,0 +1,76 @@
+{{- if .Values.containerScanner.enabled }}
+---
+{{ include "cbw.service" (dict "name" "container-scanner" "root" $) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: container-scanner
+  namespace: {{ .Release.Namespace }}
+spec:
+  {{- if not (eq (include "autoscalingEnabledFor" (dict "name" "container-scanner" "targets" .Values.autoscaling.targets)) "true") }}
+  replicas: {{ .Values.containerScanner.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: container-scanner
+      tier: frontend
+  strategy:
+    type: {{ .Values.UpdateStrategyType }}
+  template:
+    metadata:
+      annotations:
+        {{- include "cbw.fileCheckSum" (dict "file" "secret.yml" "context" .) | nindent 8 }}
+        {{- if .Values.containerScanner.extraAnnotations }}
+        {{- toYaml $.Values.containerScanner.extraAnnotations | nindent 8 }}
+        {{- end }}
+      labels:
+        app: container-scanner
+        tier: frontend
+        {{- if .Values.containerScanner.extraLabels }}
+        {{- toYaml $.Values.containerScanner.extraLabels | nindent 8 }}
+        {{- end }}
+    spec:
+      # Put the container in unconfined apparmor mode
+      # https://kubernetes.io/docs/tutorials/security/apparmor/
+      securityContext:
+        appArmorProfile:
+          type: Unconfined
+      hostAliases: {{- include "cbw.render" (dict "value" (concat .Values.containerScanner.hostAliases .Values.global.hostAliases) "context" $) | nindent 8 }}
+      nodeSelector: {{- include "cbw.render" (dict "value" .Values.containerScanner.nodeSelector "context" $) | nindent 8 }}
+      containers:
+        {{- include "cbw.image" (dict "image" .Values.containerScanner.image "global" .Values.global) | nindent 6 }}
+        name: container-scanner
+        securityContext:
+          capabilities:
+            add: ["SYS_ADMIN"]
+        resources:
+{{ toYaml .Values.containerScanner.resources | indent 10 }}
+        volumeMounts:
+        - name: container-scanner-ssh-authorized-keys
+          mountPath: /home/cyberwatch/.ssh/authorized_keys
+          subPath: authorized_keys
+        - name: container-scanner-data-cache
+          mountPath: /home/cyberwatch/workdir
+        {{- if .Values.containerScanner.extraVolumeMounts }}
+        {{- include "cbw.render" (dict "value" .Values.containerScanner.extraVolumeMounts "context" $) | nindent 8 }}
+        {{- end }}
+        env:
+{{- include "cbw.api-url" (dict "context" . "secretRef" .Values.containerScanner.containerScannerApiKeySecret "KeyString" .Values.containerScanner.container_scanner_api_key) | nindent 8 }}
+      volumes:
+      - name: container-scanner-ssh-authorized-keys
+        secret:
+          secretName: web-scanner-ssh-authorized-keys
+          optional: true
+      - name: container-scanner-data-cache
+        persistentVolumeClaim:
+          {{- if .Values.containerScanner.existingClaim }}
+          claimName: {{ .Values.containerScanner.existingClaim }}
+          {{- else }}
+          claimName: {{ .Values.internalCbw.containerScanner.persistentVolumeClaimName }}
+          {{- end }}
+      {{- if .Values.containerScanner.extraVolumes }}
+      {{- include "cbw.render" (dict "value" .Values.containerScanner.extraVolumes "context" $) | nindent 6 }}
+      {{- end }}
+      {{- include "cbw.imagePullSecrets" (dict "image" .Values.containerScanner.image "global" .Values.global) | nindent 6 }}
+{{- end }}

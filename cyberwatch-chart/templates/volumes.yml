@@ -1,0 +1,112 @@
+{{- if not .Values.global.storageClass }}
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ .Release.Name }}-data-third-parties
+  namespace: {{ .Release.Namespace }}
+  labels:
+    type: local
+    app: third-parties
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: {{ .Values.global.hostPath }}/{{ .Release.Name }}/third-parties
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ .Release.Name }}-data-ssl
+  namespace: {{ .Release.Namespace }}
+  labels:
+    type: local
+    app: ssl
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: {{ .Values.global.hostPath }}/{{ .Release.Name }}/ssl
+{{- if include "cbw.isOffline" . }}
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ .Release.Name }}-data-uploads
+  namespace: {{ .Release.Namespace }}
+  labels:
+    type: local
+    app: uploads
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: {{ .Values.global.hostPath }}/{{ .Release.Name }}/uploads
+{{- end }}
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ .Release.Name }}-data-elasticsearch
+  namespace: {{ .Release.Namespace }}
+  labels:
+    type: local
+    app: elasticsearch
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: {{ .Values.global.hostPath }}/{{ .Release.Name }}/elasticsearch
+{{- if not .Values.database.external }}
+{{- if not .Values.database.existingClaim }}
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ .Release.Name }}-data-db
+  namespace: {{ .Release.Namespace }}
+  labels:
+    type: local
+    app: db
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: {{ .Values.global.hostPath }}/{{ .Release.Name }}/db
+{{- end }}
+{{- end }}
+{{- if not .Values.containerScanner.existingClaim }}
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ .Values.internalCbw.containerScanner.persistentVolumeName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    type: local
+    app: container-scanner
+spec:
+  storageClassName: manual
+  capacity:
+    storage: {{ .Values.containerScanner.cacheStorageSize }}
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: {{ .Values.global.hostPath }}/{{ .Release.Name }}/container-scanner
+{{- end }}
+{{- end }}

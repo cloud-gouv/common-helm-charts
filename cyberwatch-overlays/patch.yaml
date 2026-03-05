@@ -1,0 +1,47 @@
+#@ load("@ytt:overlay", "overlay")
+
+#@overlay/match by=overlay.subset({"kind":"PersistentVolumeClaim", "metadata":{"name":"cybertwatch-data-third-parties-claim"}})
+#@overlay/match-child-defaults missing_ok=True
+---
+spec:
+  resources:
+    requests:
+      #@overlay/match missing_ok=True
+      #@overlay/replace
+      storage: 5Gi
+---
+#@overlay/match by=overlay.subset({"kind":"PersistentVolumeClaim", "metadata":{"name":"cybertwatch-data-ssl-claim"}})
+#@overlay/match-child-defaults missing_ok=True
+---
+spec:
+  resources:
+    requests:
+      #@overlay/match missing_ok=True
+      #@overlay/replace
+      storage: 5Gi
+---
+#@overlay/match by=overlay.subset({"kind":"PersistentVolumeClaim", "metadata":{"name":"cybertwatch-data-elasticsearch-claim"}})
+#@overlay/match-child-defaults missing_ok=True
+---
+spec:
+  resources:
+    requests:
+      #@overlay/match missing_ok=True
+      #@overlay/replace
+      storage: 5Gi
+---
+#@overlay/match by=overlay.subset({"kind": "Deployment", "metadata": {"name": "nginx"}})
+---
+spec:
+  #@overlay/match missing_ok=True
+  strategy:
+    type: Recreate
+---
+#@overlay/match by=overlay.subset({"kind": "Deployment", "metadata": {"name": "container-scanner"}})
+---
+spec:
+  template:
+    spec:
+      securityContext:
+        #@overlay/match missing_ok=True
+        fsGroup: 999

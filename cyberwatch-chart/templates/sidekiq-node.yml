@@ -1,0 +1,172 @@
+{{- if .Values.sidekiqNode.enabled }}
+{{ include "cbw.service" (dict "name" "sidekiq-node" "root" $) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sidekiq-node
+  namespace: {{ .Release.Namespace }}
+spec:
+  {{- if not (eq (include "autoscalingEnabledFor" (dict "name" "sidekiq-node" "targets" .Values.autoscaling.targets)) "true") }}
+  replicas: {{ .Values.sidekiqNode.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: sidekiq-node
+      tier: frontend
+  strategy:
+    type: {{ .Values.UpdateStrategyType }}
+  template:
+    metadata:
+      labels:
+        app: sidekiq-node
+        tier: frontend
+        {{- if .Values.sidekiqNode.extraLabels }}
+        {{- toYaml .Values.sidekiqNode.extraLabels | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- include "cbw.fileCheckSum" (dict "file" "secret.yml" "context" $) | nindent 8 }}
+        {{- include "cbw.fileCheckSum" (dict "file" "config.yml" "context" $) | nindent 8 }}
+        {{- if .Values.sidekiqNode.extraAnnotations }}
+        {{- toYaml $.Values.sidekiqNode.extraAnnotations | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "cbw.sameNodeAsPod" (dict "name" "web") | nindent 6 }}
+      hostAliases: {{- include "cbw.render" (dict "value" (concat .Values.sidekiqNode.hostAliases .Values.global.hostAliases) "context" $) | nindent 8 }}
+      nodeSelector: {{- include "cbw.render" (dict "value" .Values.sidekiqNode.nodeSelector "context" $) | nindent 8 }}
+      containers:
+        {{- include "cbw.image" (dict "image" .Values.sidekiqNode.image "global" .Values.global) | nindent 6 }}
+        name: sidekiq-node
+        resources:
+{{ toYaml .Values.sidekiqNode.resources | indent 10 }}
+        command: ["./docker-entrypoint.sh"]
+        args: [sidekiq_node]
+        securityContext:
+          allowPrivilegeEscalation: false
+        envFrom:
+        - configMapRef:
+            name: cbw-config
+        env:
+        - name: REDIS_HOST
+          value: {{ .Values.redis.host }}
+{{ include "cbw.nodeName" . | indent 8 }}
+{{ include "cbw.env-config" (dict "key" "redis_tls_ca"             "env" "REDIS_TLS_CA")       | indent 8 }}
+{{- if (ne .Values.database.tls.mode "disabled") }}
+{{ include "cbw.env-config" (dict "key" "db_tls_ca"             "env" "DB_TLS_CA")             | indent 8 }}
+{{- end }}
+{{- if .Values.database.tls.mode }}
+{{ include "cbw.env-config" (dict "key" "db_tls_mode" "env" "DB_TLS_MODE") | indent 8 }}
+{{- end }}
+{{- if .Values.database.tls.verify }}
+{{ include "cbw.env-config" (dict "key" "db_tls_verify" "env" "DB_TLS_VERIFY") | indent 8 }}
+{{- end }}
+{{ include "cbw.env-secret" (dict "key" "mysql-hostname" "env" "MYSQL_HOSTNAME") | indent 8 }}
+{{ include "cbw.env-secret" (dict "key" "mysql-database" "env" "MYSQL_DATABASE") | indent 8 }}
+{{ include "cbw.env-secret" (dict "key" "mysql-root-password" "env" "MYSQL_ROOT_PASSWORD" "secretRef" .Values.database.rootPasswordSecret) | indent 8 }}
+{{ include "cbw.env-secret" (dict "key" "mysql-password" "env" "MYSQL_PASSWORD" "secretRef" .Values.database.passwordSecret) | indent 8 }}
+{{ include "cbw.env-secret" (dict "key" "mysql-user" "env" "MYSQL_USER") | indent 8 }}
+{{ include "cbw.env-secret" (dict "key" "mysql-port" "env" "MYSQL_PORT") | indent 8 }}
+{{ include "cbw.env-secret" (dict "key" "redis-password" "env" "REDIS_PASSWORD" "secretRef" .Values.redis.passwordSecret) | indent 8 }}
+{{ include "cbw.env-secret" (dict "key" "secret-key-base" "env" "SECRET_KEY_BASE" "secretRef" .Values.key.baseSecret) | indent 8 }}
+{{ include "cbw.env-secret" (dict "key" "secret-key-credential" "env" "SECRET_KEY_CREDENTIAL" "secretRef" .Values.key.credentialSecret) | indent 8 }}
+        {{- if .Values.containerScanner.enabled }}
+        - name: CONTAINER_SCANNER_PRESENT
+          value: "true"
+{{ include "cbw.env-secret" (dict "key" "container-scanner-api-key" "env" "CETUS_API_KEY" "secretRef" .Values.containerScanner.containerScannerApiKeySecret "optional" true) | indent 8 }}
+        {{- end }}
+        {{- if .Values.webScanner.enabled }}
+{{ include "cbw.env-secret" (dict "key" "web-scanner-api-key" "env" "HEIMDALL_API_KEY" "secretRef" .Values.webScanner.webScannerApiKeySecret "optional" true) | indent 8 }}
+        {{- end }}
+        {{- if .Values.sidekiqNode.extraEnvVars }}
+        {{- include "cbw.render" (dict "value" .Values.sidekiqNode.extraEnvVars "context" $) | nindent 8 }}
+        {{- end }}
+        {{- range $key, $value := .Values.sidekiqNode.env }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        volumeMounts:
+        {{- if .Values.thirdParties.enabled }}
+        - name: data-third-parties
+          mountPath: /olympe/public/third_parties
+        {{- end }}
+        {{- if (and .Values.database.external (or .Values.database.tls.secret .Values.database.tls.databaseRootCa)) }}
+        {{- /* Check for the presence of the tls.secret or tls.databaseRootCa to avoid mounting database-ca
+               on satellite nodes.
+               Satellite nodes should use the root-ca unless the database is not on the master node. */}}
+        - name: db-ca
+          mountPath: /run/secrets/db
+          readOnly: true
+        {{- end }}
+        {{- if (and .Values.redis.external (or .Values.redis.tls.secret .Values.redis.tls.redisRootCa)) }}
+        {{- /* Check for the presence of the tls.secret or tls.redisRootCa to avoid mounting redis-ca on satellite nodes.
+               Satellite nodes should use the root-ca unless the redis is not on the master node. */}}
+        - name: redis-ca
+          mountPath: /run/secrets/redis
+          readOnly: true
+        {{- end }}
+        - name: root-ca
+          mountPath: /run/secrets/certs
+          readOnly: true
+        - name: ssh-private-key
+          mountPath: /home/cyberwatch/.ssh/id_ed25519
+          subPath: id_ed25519
+        {{- if .Values.sidekiqNode.extraVolumeMounts }}
+        {{- include "cbw.render" (dict "value" .Values.sidekiqNode.extraVolumeMounts "context" $) | nindent 8 }}
+        {{- end }}
+      volumes:
+      {{- if .Values.thirdParties.enabled }}
+      - name: data-third-parties
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-data-third-parties-claim
+      {{- end }}
+      {{- if (and .Values.database.external (or .Values.database.tls.secret .Values.database.tls.databaseRootCa)) }}
+      {{- /* Check for the presence of the tls.secret or tls.databaseRootCa to avoid mounting database-ca
+             on satellite nodes.
+             Satellite nodes should use the root-ca unless the database is not on the master node. */}}
+      - name: db-ca
+        secret:
+          {{- if .Values.database.tls.secret }}
+          secretName: {{ .Values.database.tls.secret }}
+          {{- else }}
+          secretName: {{ .Values.internalCbw.database.tls.rootCaHelmSecret }}
+          {{- end }}
+          defaultMode: 0444
+          items:
+          - key: {{ .Values.internalCbw.database.tls.rootCaFilename }}
+            path: {{ .Values.internalCbw.database.tls.rootCaFilename }}
+      {{- end }}
+      {{- if (and .Values.redis.external (or .Values.redis.tls.secret .Values.redis.tls.redisRootCa)) }}
+      {{- /* Check for the presence of the tls.secret or tls.redisRootCa to avoid mounting redis-ca on satellite nodes.
+             Satellite nodes should use the root-ca unless the database is not on the master node. */}}
+      - name: redis-ca
+        secret:
+          {{- if .Values.redis.tls.secret }}
+          secretName: {{ .Values.redis.tls.secret }}
+          {{- else }}
+          secretName: {{ .Values.internalCbw.redis.tls.rootCaHelmSecret }}
+          {{- end }}
+          defaultMode: 0444
+          items:
+          - key: {{ .Values.internalCbw.redis.tls.rootCaFilename }}
+            path: {{ .Values.internalCbw.redis.tls.rootCaFilename }}
+      {{- end }}
+      - name: root-ca
+        secret:
+          {{- if eq .Values.node.type "satellite" }}
+          secretName: {{ .Values.global.pki.root_ca }}
+          {{- else }}
+          secretName: {{ .Values.internalCbw.global.tls.CaSecret }}
+          defaultMode: 0444
+          items:
+          - key: {{ .Values.internalCbw.global.tls.rootCaFilename }}
+            path: cbw-root-ca-cert.pem
+          {{- end }}
+      - name: ssh-private-key
+        secret:
+          secretName: ssh-private-key
+          optional: true
+      {{- if .Values.sidekiqNode.extraVolumes }}
+      {{- include "cbw.render" (dict "value" .Values.sidekiqNode.extraVolumes "context" $) | nindent 6 }}
+      {{- end }}
+      {{- include "cbw.imagePullSecrets" (dict "image" .Values.sidekiqNode.image "global" .Values.global) | nindent 6 }}
+{{- end }}

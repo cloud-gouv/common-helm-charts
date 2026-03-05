@@ -1,0 +1,82 @@
+Installation of Cyberwatch-Chart
+
+   - Release Name: {{ .Release.Name }}
+   - Namespace: {{ .Release.Namespace }}
+   - Chart Name: {{ .Chart.Name }}
+   - Chart Version: {{ .Chart.Version }}
+
+Changelog available at: https://docs.cyberwatch.com/help/fr/general_administration_software/changelog/helm_chart/
+
+To get all parameters available in the chart or default values, use:
+
+helm show values oci://harbor.cyberwatch.fr/cbw-on-premise/cyberwatch-chart > values.yml
+
+More documentation available on https://docs.cyberwatch.com
+For any technical question, please contact the Cyberwatch support: support@cyberwatch.com
+
+------------------------
+{{ if (or .Values.ingress.host .Values.ingress.tls .Values.ingress.annotations .Values.ingress.ingressClassName) -}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                    WARNING
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ingress.host, ingress.tls, ingress.ingressClassName and ingress.annotations are DEPRECATED.
+Please use the `hosts` list in ingress.hosts.
+Until you didn't remove .Values.ingress.host, the new value .Values.hosts cannot be used.
+The documentation is available in the standard values.yaml of the Helm chart.
+The fonctionnality will be removed in a future version.
+{{ printf "\n"}}
+{{- end -}}
+
+{{- $components := list "web" "nginx" "database" "redis" "sidekiqMaster" "sidekiqNode" "sidekiq" "elasticsearch" "kibana" "thirdParties" "cache" "webScanner" "containerScanner" -}}
+{{- range $component := $components -}}
+  {{- if index $.Values $component "extraEnvVars" -}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                    WARNING
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+WARNING: .Values.{{- $component }}.extraEnvVars are DEPRECATED.
+Please use the .Values.{{- $component }}.env variables.
+The fonctionnality will be removed in a future version.
+{{ printf "\n"}}
+  {{- end -}}
+{{- end -}}
+
+{{- if .Values.containerScanner.cache_size_limit -}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                    WARNING
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+containerScanner.cache_size_limit is DEPRECATED.
+Please use the `containerScanner.cacheStorageSize` or `containerScanner.existingClaim`.
+The documentation is available in the standard values.yaml of the Helm chart.
+The fonctionnality will be removed in a future version.
+{{ printf "\n"}}
+{{- end -}}
+
+{{- if and (not ((.Values.containerScanner.containerScannerApiKeySecret | default dict).name | default false)) (not .Values.containerScanner.container_scanner_api_key) -}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                    WARNING
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The 'container_scanner_api_key' is not defined and no external secret (with containerScannerApiKeySecret) is configured.
+You have two options:
+1. Generate a key with `openssl rand -hex 16:openssl rand -hex 16` and store it in `containerScanner.container_scanner_api_key` in your values.yml file.
+2. Use an external Kubernetes secret by configuring `containerScanner.containerScannerApiKeySecret.name` and `containerScanner.containerScannerApiKeySecret.key`.
+This is required for future usage updates. 
+Note: This will NOT break your current installation, 
+but it must be added manually for future compatibility.
+The documentation is available in the standard values.yaml of the Helm chart.
+{{ printf "\n"}}
+{{- end -}}
+
+{{- if and (not ((.Values.webScanner.webScannerApiKeySecret | default dict).name | default false)) (not .Values.webScanner.web_scanner_api_key) -}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                    WARNING
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The 'web_scanner_api_key' is not defined and no external secret (with webScannerApiKeySecret) is configured.
+You have two options:
+1. Generate a key with `openssl rand -hex 16:openssl rand -hex 16` and store it in `webScanner.web_scanner_api_key` in your values.yml file.
+2. Use an external Kubernetes secret by configuring `webScanner.webScannerApiKeySecret.name` and `webScanner.webScannerApiKeySecret.key`.
+This is required for future usage updates. 
+Note: This will NOT break your current installation, 
+but it must be added manually for future compatibility.
+The documentation is available in the standard values.yaml of the Helm chart.
+{{ printf "\n"}}
+{{- end -}}

@@ -1,0 +1,72 @@
+{{- if (and .Values.elasticsearch.enabled (ne .Values.node.type "satellite")) }}
+{{ include "cbw.service" (dict "name" "elasticsearch" "root" $) }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: elasticsearch
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+        tier: frontend
+        {{- if .Values.elasticsearch.extraLabels }}
+        {{- toYaml .Values.elasticsearch.extraLabels | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- if .Values.elasticsearch.extraAnnotations }}
+        {{- toYaml $.Values.elasticsearch.extraAnnotations | nindent 8 }}
+        {{- end }}
+    spec:
+      hostAliases: {{- include "cbw.render" (dict "value" (concat .Values.elasticsearch.hostAliases .Values.global.hostAliases) "context" $) | nindent 8 }}
+      nodeSelector: {{- include "cbw.render" (dict "value" .Values.elasticsearch.nodeSelector "context" $) | nindent 8 }}
+      containers:
+        {{- include "cbw.image" (dict "image" .Values.elasticsearch.image "global" .Values.global) | nindent 6 }}
+        name: elasticsearch
+        securityContext:
+          allowPrivilegeEscalation: false
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 9200
+          periodSeconds: 20
+          failureThreshold: 30
+          timeoutSeconds: 5
+        startupProbe:
+          httpGet:
+            path: /
+            port: 9200
+          periodSeconds: 20
+          failureThreshold: 60
+          timeoutSeconds: 5
+        resources:
+{{ toYaml .Values.elasticsearch.resources | indent 10 }}
+        env:
+        {{- if .Values.elasticsearch.extraEnvVars }}
+        {{- include "cbw.render" (dict "value" .Values.elasticsearch.extraEnvVars "context" $) | nindent 8 }}
+        {{- end }}
+        {{- range $key, $value := .Values.elasticsearch.env }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        volumeMounts:
+        - name: data-elasticsearch
+          mountPath: /tmp/nonExistingDirectory
+        {{- if .Values.elasticsearch.extraVolumeMounts }}
+        {{- include "cbw.render" (dict "value" .Values.elasticsearch.extraVolumeMounts "context" $) | nindent 8 }}
+        {{- end }}
+      volumes:
+      - name: data-elasticsearch
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-data-elasticsearch-claim
+      {{- if .Values.elasticsearch.extraVolumes }}
+      {{- include "cbw.render" (dict "value" .Values.elasticsearch.extraVolumes "context" $) | nindent 6 }}
+      {{- end }}
+      {{- include "cbw.imagePullSecrets" (dict "image" .Values.elasticsearch.image "global" .Values.global) | nindent 6 }}
+{{- end }}

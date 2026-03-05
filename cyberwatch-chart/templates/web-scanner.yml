@@ -1,0 +1,60 @@
+{{- if .Values.webScanner.enabled }}
+{{ include "cbw.service" (dict "name" "web-scanner" "root" $) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-scanner
+  namespace: {{ .Release.Namespace }}
+spec:
+  {{- if not (eq (include "autoscalingEnabledFor" (dict "name" "web-scanner" "targets" .Values.autoscaling.targets)) "true") }}
+  replicas: {{ .Values.webScanner.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: web-scanner
+      tier: frontend
+  strategy:
+    type: {{ .Values.UpdateStrategyType }}
+  template:
+    metadata:
+      labels:
+        app: web-scanner
+        tier: frontend
+        {{- if .Values.webScanner.extraLabels }}
+        {{- toYaml $.Values.webScanner.extraLabels | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- include "cbw.fileCheckSum" (dict "file" "secret.yml" "context" .) | nindent 8 }}
+        {{- if .Values.webScanner.extraAnnotations }}
+        {{- toYaml $.Values.webScanner.extraAnnotations | nindent 8 }}
+        {{- end }}
+    spec:
+      hostAliases: {{- include "cbw.render" (dict "value" (concat .Values.webScanner.hostAliases .Values.global.hostAliases) "context" $) | nindent 8 }}
+      nodeSelector: {{- include "cbw.render" (dict "value" .Values.webScanner.nodeSelector "context" $) | nindent 8 }}
+      containers:
+        {{- include "cbw.image" (dict "image" .Values.webScanner.image "global" .Values.global) | nindent 6 }}
+        name: web-scanner
+        securityContext:
+          allowPrivilegeEscalation: true
+        resources:
+{{ toYaml .Values.webScanner.resources | indent 10 }}
+        volumeMounts:
+        - name: web-scanner-ssh-authorized-keys
+          mountPath: /home/cyberwatch/.ssh/authorized_keys
+          subPath: authorized_keys
+        {{- if .Values.webScanner.extraVolumeMounts }}
+        {{- include "cbw.render" (dict "value" .Values.webScanner.extraVolumeMounts "context" $) | nindent 8 }}
+        {{- end }}
+        env:
+{{- include "cbw.api-url" (dict "context" . "secretRef" .Values.webScanner.webScannerApiKeySecret "KeyString" .Values.webScanner.web_scanner_api_key) | nindent 8 }}
+      volumes:
+      - name: web-scanner-ssh-authorized-keys
+        secret:
+          secretName: web-scanner-ssh-authorized-keys
+          optional: true
+      {{- if .Values.webScanner.extraVolumes }}
+      {{- include "cbw.render" (dict "value" .Values.webScanner.extraVolumes "context" $) | nindent 6 }}
+      {{- end }}
+      {{- include "cbw.imagePullSecrets" (dict "image" .Values.webScanner.image "global" .Values.global) | nindent 6 }}
+{{- end }}

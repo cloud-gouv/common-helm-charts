@@ -1,0 +1,121 @@
+{{- if not .Values.redis.external }}
+{{ include "cbw.service" (dict "name" "redis" "root" $) }}
+{{ if eq .Values.node.type "master" }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: exposed-redis
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: NodePort
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+  externalIPs:
+    - {{ .Values.node.ip }}
+{{ end }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+        {{- if .Values.redis.extraLabels }}
+        {{- toYaml .Values.redis.extraLabels | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- include "cbw.fileCheckSum" (dict "file" "secret.yml" "context" .) | nindent 8 }}
+        {{- if .Values.redis.extraAnnotations }}
+        {{- toYaml $.Values.redis.extraAnnotations | nindent 8 }}
+        {{- end }}
+    spec:
+      hostAliases: {{- include "cbw.render" (dict "value" (concat .Values.redis.hostAliases .Values.global.hostAliases) "context" $) | nindent 8 }}
+      nodeSelector: {{- include "cbw.render" (dict "value" .Values.redis.nodeSelector "context" $) | nindent 8 }}
+      securityContext:
+        # redis user = 999
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+      containers:
+        {{- include "cbw.image" (dict "image" .Values.redis.image "global" .Values.global) | nindent 6 }}
+        name: redis
+        securityContext:
+          allowPrivilegeEscalation: false
+        livenessProbe:
+          exec:
+            command:
+              - sh
+              - -c
+              - redis-cli -a "${REDIS_PASSWORD}" PING | grep PONG
+          periodSeconds: 20
+          failureThreshold: 30
+        startupProbe:
+          exec:
+            command:
+              - sh
+              - -c
+              - redis-cli -a "${REDIS_PASSWORD}" PING | grep PONG
+          periodSeconds: 20
+          failureThreshold: 60
+        resources:
+{{ toYaml .Values.redis.resources | indent 10 }}
+        env:
+{{ include "cbw.env-secret" (dict "key" "redis-password" "env" "REDIS_PASSWORD" "secretRef" .Values.redis.passwordSecret) | indent 8 }}
+        {{- if .Values.redis.extraEnvVars }}
+        {{- include "cbw.render" (dict "value" .Values.redis.extraEnvVars "context" $) | nindent 8 }}
+        {{- end }}
+        {{- range $key, $value := .Values.redis.env }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        volumeMounts:
+        {{- if not (empty .Values.redis.tls) }}
+          {{- if .Values.redis.tls.secret }}
+        - name: redis-tls
+          mountPath: /run/secrets/redis
+          readOnly: true
+        - name: root-ca
+          mountPath: /run/secrets/certs
+          readOnly: true
+          subPath: cbw-root-ca-cert.pem
+          {{- end }}
+        - name: data-redis
+          mountPath: /data
+        {{- end }}
+        {{- if .Values.redis.extraVolumeMounts }}
+        {{- include "cbw.render" (dict "value" .Values.redis.extraVolumeMounts "context" $) | nindent 8 }}
+        {{- end }}
+      volumes:
+      - name: root-ca
+        secret:
+          secretName: {{ .Values.internalCbw.global.tls.CaSecret }}
+          optional: true
+      - name: redis-tls
+        secret:
+          secretName: {{ .Values.internalCbw.redis.tls.CertSecret }}
+          optional: true
+      {{- if .Values.redis.existingClaim }}
+      - name: data-redis
+        persistentVolumeClaim:
+          claimName: {{ .Values.redis.existingClaim }}
+      {{- else }}
+      - name: data-redis
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-data-redis-claim
+      {{- end }}
+      {{- if .Values.redis.extraVolumes }}
+      {{- include "cbw.render" (dict "value" .Values.redis.extraVolumes "context" $) | nindent 6 }}
+      {{- end }}
+      {{- include "cbw.imagePullSecrets" (dict "image" .Values.redis.image "global" .Values.global) | nindent 6 }}
+{{- end }}

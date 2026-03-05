@@ -1,0 +1,148 @@
+---
+{{- if .Values.thirdParties.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-data-third-parties-claim
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: {{ .Values.global.storageClass | default "manual" }}
+{{- if not .Values.global.storageClass }}
+  selector:
+    matchLabels:
+      app: third-parties
+{{- end }}
+{{- end }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-data-ssl-claim
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes:
+  - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: {{ .Values.global.storageClass | default "manual" }}
+{{- if not .Values.global.storageClass }}
+  selector:
+    matchLabels:
+      app: ssl
+{{- end }}
+{{- if include "cbw.isOffline" . }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-data-uploads-claim
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: {{ .Values.global.storageClass | default "manual" }}
+{{- if not .Values.global.storageClass }}
+  selector:
+    matchLabels:
+      app: uploads
+{{- end }}
+{{- end }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-data-elasticsearch-claim
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: {{ .Values.global.storageClass | default "manual" }}
+{{- if not .Values.global.storageClass }}
+  selector:
+    matchLabels:
+      app: elasticsearch
+{{- end }}
+{{- if not .Values.database.external }}
+{{- if not .Values.database.existingClaim }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-data-db-claim
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: {{ .Values.global.storageClass | default "manual" }}
+{{- if not .Values.global.storageClass }}
+  selector:
+    matchLabels:
+      app: db
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if not .Values.redis.external }}
+{{- if not .Values.redis.existingClaim }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-data-redis-claim
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: {{ .Values.global.storageClass | default "manual" }}
+{{- if not .Values.global.storageClass }}
+  selector:
+    matchLabels:
+      app: redis
+{{- end }}
+{{- end }}
+{{- end }}
+---
+{{- if not .Values.containerScanner.existingClaim }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.internalCbw.containerScanner.persistentVolumeClaimName }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: {{ .Values.containerScanner.cacheStorageSize }}
+  storageClassName: {{ .Values.global.storageClass | default "manual" }}
+{{- if not .Values.global.storageClass }}
+  selector:
+    matchLabels:
+      app: container-scanner
+{{- end }}
+{{- end }}

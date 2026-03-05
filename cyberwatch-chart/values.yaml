@@ -1,0 +1,1139 @@
+# This file contain the values for cyberwatch helm chart
+
+
+## Global Parameters
+global:
+
+  ## Storage class used by volumes to allocate dynamically some storage using
+  ## VolumeClaims. If not set, the default is to use the folder defined from
+  ## global.hostPath as base path for all the containers.
+  # storageClass:
+
+  ## Path on the node were all the persistent data will be stored. Ignored if
+  ## global.storageClass is set. Must not end with a slash.
+  hostPath: /var/lib/volumes
+
+  ## Parameters for container images.
+  image:
+
+    ## Default container registry.
+    registry: harbor.cyberwatch.fr/cbw-on-premise
+
+    ## Default image tag.
+    tag: latest
+
+    ## When to pull images. One of "Always", "Never"
+    pullPolicy: Always
+
+    ## Default pullSecrets to use to pull the images.
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+    pullSecrets:
+      - cyberwatch-credentials
+
+    ## For each credential, creates a secret to connect to a registry.
+    ## To be used by pods, ensure that the value of the `name` field is added to `global.image.pullSecrets`.
+    registryCredentials: []
+    #  - name: cyberwatch-credentials
+    #    registry: harbor.cyberwatch.fr/cbw-on-premise
+    #    username:
+    #    password:
+    #    email:
+
+  ## Default deployment pod host aliases
+  ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
+  ##
+  hostAliases: []
+
+  ## Public Key Infrastructure parameters
+  pki:
+
+    ## Name of the secret that contains the root-ca certificate.
+    ## It is used to check the signature of certificates used to encrypt traffic
+    ## services.
+    root_ca: cbw-root-ca-cert
+    
+    ## Use the master root certificate to connect a satellite to it.
+    ## Store the certificate in the variables below in base64.
+    ## It will generate a secret named `cbw-root-ca-cert`.
+    root_ca_certificate:
+
+## Specify UpdateStrategyType for deployements. (Also available: RollingUpdate)
+## The UpdateStrategyType option is available for all deployments of the chart helm, except for the db and redis service.
+## db and redis are StatefulSets with a rollingupdate UpdateStrategy mechanism by default.
+UpdateStrategyType: Recreate
+
+### 'autoscaling' allow you to set an horizontal pod autoscaling on deployement and statefulset.
+### If enabled, you can add deployment in the list below to configure HPA based on CPU/Memory usage.
+### Available Deployment to scale : sidekiq, sidekiq-node, nginx, web, web-scanner, container-scanner.
+### https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+### 
+### Example :
+###
+### autoscaling:
+###   enabled: true
+###   targets:
+###     - name: sidekiq-node
+###       minReplicas: 1
+###       maxReplicas: 10
+###       targetCPUUsage: 65
+###       targetRAMUsage: 80
+
+autoscaling:
+  enabled: false
+  targets:
+    - name:
+      minReplicas:
+      maxReplicas:
+      targetCPUUsage:
+      targetRAMUsage:
+
+ingress:
+
+  ## Set to true to enable ingress
+  enabled: false
+
+  ## List of ingresses to configure
+  ##
+  ## hostname: Host for the ingress record.
+  ## ingressClassName: IngressClass that will be used to implement the Ingress.
+  ##                   Required if you have more than one IngressClass marked as the default for your cluster.
+  ## annotations: List of annotations to add to the ingress.
+  ##              For example:
+  ##              annotations:
+  ##                nginx.ingress.kubernetes.io/app-root: "/cyberwatch"
+  ##                nginx.ingress.kubernetes.io/ssl-ciphers: "DHE-RSA-AES256-GCM-SHA384"
+  ##              To use cert-manager, use the two annotations below:
+  ##                kubernetes.io/ingress.class: nginx
+  ##                cert-manager.io/cluster-issuer: cluster-issuer-name
+  ## tls.enabled: Enable TLS configuration for host defined at `ingress.host`.
+  ##              TLS certificates will be retrieved from a TLS secret with name: `{{- printf "%s-tls" .Values.ingress.hostname }}`,
+  ##              except if the `tls.secret` is specified.
+  ##
+  ##              You can:
+  ##                - Create manually a TLS secret and provide its name with the `tls.secret` parameter.
+  ##                - Provide a certificate and have the secret created automatically by using `tls.ingressTLSCertificate` and `tls.ingressTLSKey`.
+  ##                - Rely on cert-manager to create it by setting the corresponding annotations
+  ##                - Rely on Helm to create self-signed certificates if `tls.secret`, `tls.ingressTLSCertificate` and `tls.ingressTLSKey` are set to null.
+  ##                  This is the default behaviour if nothing else is configured.
+  ## tls.secret: Specify an existing secret to use. If `null` or empty, but `tls.enabled` is `true`,
+  ##             the TLS configuration will use a TLS secret named `{{- printf "%s-tls" .Values.ingress.hostname }}`.
+  ## tls.ingressTLSCertificate: Use an existing certificate for the TLS. Store it in base64. WARNING: `tls.secret` must be null.
+  ## tls.ingressTLSKey: Use an existing key for the TLS. Store it in base64. WARNING: `tls.secret` must be null.
+  hosts:
+    - hostname: cyberwatch.local
+      ingressClassName:
+      annotations:
+      tls:
+        enabled: true
+        secret:
+        ingressTLSCertificate:
+        ingressTLSKey:
+
+node:
+  ## Name of the node from the point of view of Cyberwatch. If empty, Cyberwatch sees the name of the node where
+  ## container `web` is ran. Setting this value is required on multi-nodes clusters.
+  # name: cyberwatch-node
+
+  # IP address of the node where redis and database ports will be exposed if the
+  # node.type is "master"
+  ip:
+
+  # Type of the node. One of "single", "satellite" and "master"
+  type: single
+
+  ## Whether the node(s) of the cluster are connected to the internet.
+  ## Is it used to determine if some volume needs to be enabled. One of true or false.
+  # offline: false
+
+
+# Web parameters
+web:
+
+  # Internal port used by the web application. This port is not exposed.
+  port: "3000"
+
+  # Set to true to enable the web container
+  enabled: true
+
+  resources:
+    limits:
+      memory: "4G"
+      cpu: "4"
+    requests:
+      memory: "400M"
+      cpu: "0.4"
+
+  ## Extra volumes to add to the pod.
+  extraVolumes: []
+
+  ## Extra volume mounts to add to the container.
+  extraVolumeMounts: []
+
+  ## Extra labels to add to the pod.
+  extraLabels: {}
+
+  ## Extra Annotations to add to the pod.
+  ## Be careful when adding annotations to pods as they can have undesirable side effects on pods.
+  ## Pay attention to existing annotations in the pod.
+  extraAnnotations: {}
+
+  ## DEPRECATED: An array to add extra environment variables to the container.
+  ## E.g.
+  ## extraEnvVars:
+  ##  - name: ENV_VAR
+  ##    value: "env_var_value"
+  # extraEnvVars: []
+
+  ## A dictionnary of extra environment variables
+  ## E.g.
+  ## env:
+  ##   HOSTNAME: value
+  env: {}
+
+  ## Parameters for container images.
+  image:
+
+    # registry: harbor.cyberwatch.fr
+    repository: olympe
+    # tag:
+    # pullPolicy: Always
+    # pullSecrets: []
+
+  ## Deployment pod host aliases
+  ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
+  ##
+  hostAliases: []
+
+  # Node labels used to schedule the pod on specific nodes.
+  # Example:
+  # nodeSelector:
+  #   disktype: ssd
+  nodeSelector: {}
+
+  # Number of replicas of the pod.
+  replicaCount: 1
+
+
+# Configure the listening ports for nginx
+nginx:
+
+  ## HTTP port exposed on the node. Ignored if `ingress.enabled` is set to true.
+  httpPort: 80
+
+  ## HTTPS port exposed on the node. Ignored if `ingress.enabled` is set to true.
+  httpsPort: 443
+
+  # address of the DNS resolver inside the cluster
+  resolver:
+
+  # Set to true to enable HSTS (HTTP Strict Transport Security)
+  useHSTS: false
+
+  # Set to true to restrict HTTP access only to the api
+  limitToApi: false
+
+  # Set to true to enable the nginx container
+  enabled: true
+
+  resources:
+    limits:
+      memory: "1G"
+      cpu: "1"
+    requests:
+      memory: "100M"
+      cpu: "0.1"
+
+  ## Extra volumes to add to the pod.
+  extraVolumes: []
+
+  ## Extra volume mounts to add to the container.
+  extraVolumeMounts: []
+
+  ## Extra labels to add to the pod.
+  extraLabels: {}
+
+  ## Extra Annotations to add to the pod.
+  ## Be careful when adding annotations to pods as they can have undesirable side effects on pods.
+  ## Pay attention to existing annotations in the pod.
+  extraAnnotations: {}
+
+  ## DEPRECATED: An array to add extra environment variables to the container.
+  ## E.g.
+  ## extraEnvVars:
+  ##  - name: ENV_VAR
+  ##    value: "env_var_value"
+  # extraEnvVars: []
+
+  ## A dictionnary of extra environment variables
+  ## E.g.
+  ## env:
+  ##   HOSTNAME: value
+  env: {}
+
+  ## Parameters for container images.
+  image:
+
+    # registry: harbor.cyberwatch.fr
+    repository: nginx
+    # tag:
+    # pullPolicy: Always
+    # pullSecrets: []
+
+  ## Deployment pod host aliases
+  ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
+  ##
+  hostAliases: []
+
+  # Node labels used to schedule the pod on specific nodes.
+  # Example:
+  # nodeSelector:
+  #   disktype: ssd
+  nodeSelector: {}
+
+
+# database contain informations about the database used by cyberwatch
+database:
+  host: "db"
+  # name: "olympe"
+  # user: "olympe"
+  password:
+  ## Reference to an existing Kubernetes secret for the database password.
+  ## If set, password will be read from this secret instead of values.yaml.
+  ## Example:
+  ##   passwordSecret:
+  ##     name: my-db-secret
+  ##     key: password
+  passwordSecret:
+  root_password:
+  ## Reference to an existing Kubernetes secret for the database root password.
+  ## If set, root_password will be read from this secret instead of values.yaml.
+  ## Example:
+  ##   rootPasswordSecret:
+  ##     name: my-db-secret
+  ##     key: root-password
+  rootPasswordSecret:
+  port: "3306"
+
+  ## Name of a PersistentVolumeClaim to use to store database data.
+  ## When set, the default database volume and volume claim are not loaded.
+  ## WARNING: If the database already contained data with the default volumes
+  ## and you configure this, you will need to migrate the data manually.
+  # existingClaim: ""
+
+  ## Set to true to disable the cluster database and use an external one
+  ## If set to true, an external root certificate secret must be set in cbw in database.tls.secret.
+  external: false
+
+  resources:
+    limits:
+      memory: "8G"
+      cpu: "4"
+    requests:
+      memory: "2G"
+      cpu: "0.5"
+
+  ## Extra volumes to add to the pod.
+  extraVolumes: []
+
+  ## Extra volume mounts to add to the container.
+  extraVolumeMounts: []
+
+  ## Extra labels to add to the pod.
+  extraLabels: {}
+
+  ## Extra Annotations to add to the pod.
+  ## Be careful when adding annotations to pods as they can have undesirable side effects on pods.
+  ## Pay attention to existing annotations in the pod.
+  extraAnnotations: {}
+
+  ## DEPRECATED: An array to add extra environment variables to the container.
+  ## E.g.
+  ## extraEnvVars:
+  ##  - name: ENV_VAR
+  ##    value: "env_var_value"
+  # extraEnvVars: []
+
+  ## A dictionnary of extra environment variables
+  ## E.g.
+  ## env:
+  ##   HOSTNAME: value
+  env: {}
+
+  ## Parameters for container images.
+  image:
+
+    # registry: harbor.cyberwatch.fr
+    repository: mariadb
+    tag: stable
+    # pullPolicy: Always
+    # pullSecrets: []
+
+  ## Deployment pod host aliases
+  ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
+  ##
+  hostAliases: []
+
+  # Node labels used to schedule the pod on specific nodes.
+  # Example:
+  # nodeSelector:
+  #   disktype: ssd
+  nodeSelector: {}
+
+  ## TLS configuration for the communication between the database and Cyberwatch
+  tls:
+    ## The TLS mode used to verify the TLS connection. One of:
+    ##  - disabled: Do not use TLS
+    ##  - preferred: Use TLS if available
+    ##  - required: Force the use of TLS
+    ##  - verify_ca: Force the use of TLS with a trusted certificate (require database.tls.secret).
+    ##  - verify_identity: Force the use of TLS with a certificate that match the hostname (require database.tls.secret).
+    mode:
+
+    ## Set to true to ensure that TLS communication is enabled.
+    ## If set to true, an error is raised if no TLS connection can be established
+    ## (for example if tls mode is "disabled", or "preferred" with a database
+    ## that does not support encryption, or if the certificate of the database
+    ## cannot be verify).
+    verify:
+
+    ## Name of the secret that contains the certificate of the database.
+    ## Use it with an external database to store the root certificate authority of the database.
+    ## To create the secret, use `kubectl -n cyberwatch create secret generic YOUR_SECRET_NAME --from-file=db-root-ca.pem=YOU_CERT_FILE`
+    ## and set YOUR_SECRET_NAME as value of database.tls.secret.
+    secret:
+
+    ## Use an existing root ca certificate to connect to the database.
+    ## Used for connection with external database.
+    ## The certificat must be in base64. It will be stored in the secret `cbw-helm-db-root-ca`
+    ## Warning: `database.tls.secret` must be null or empty.
+    databaseRootCa:
+
+## redis parameters
+redis:
+  ## Host of the redis database
+  host: 'redis'
+
+  ## Password for the redis database
+  password:
+  ## Reference to an existing Kubernetes secret for the redis password.
+  ## If set, password will be read from this secret instead of values.yaml.
+  ## Example:
+  ##   passwordSecret:
+  ##     name: my-redis-secret
+  ##     key: password
+  passwordSecret:
+
+  ## Set to true to disable the cluster redis database and use an external one
+  external: false
+
+  ## Name of a PersistentVolumeClaim to use to store redis data.
+  ## When set, the default redis volume and volume claim are not loaded.
+  ## WARNING: If the redis already contained data with the default volumes
+  ## and you configure this, you will need to migrate the data manually.
+  # existingClaim: ""
+
+  resources:
+    limits:
+      memory: "1G"
+      cpu: "1"
+    requests:
+      memory: "100M"
+      cpu: "0.1"
+
+  ## Extra volumes to add to the pod.
+  extraVolumes: []
+
+  ## Extra volume mounts to add to the container.
+  extraVolumeMounts: []
+
+  ## Extra labels to add to the pod.
+  extraLabels: {}
+
+  ## Extra Annotations to add to the pod.
+  ## Be careful when adding annotations to pods as they can have undesirable side effects on pods.
+  ## Pay attention to existing annotations in the pod.
+  extraAnnotations: {}
+
+  ## DEPRECATED: An array to add extra environment variables to the container.
+  ## E.g.
+  ## extraEnvVars:
+  ##  - name: ENV_VAR
+  ##    value: "env_var_value"
+  # extraEnvVars: []
+
+  ## A dictionnary of extra environment variables
+  ## E.g.
+  ## env:
+  ##   HOSTNAME: value
+  env: {}
+
+  ## Parameters for container images.
+  image:
+
+    # registry: harbor.cyberwatch.fr
+    repository: redis
+    # tag:
+    # pullPolicy: Always
+    # pullSecrets: []
+
+  ## Deployment pod host aliases
+  ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
+  ##
+  hostAliases: []
+
+  # Node labels used to schedule the pod on specific nodes.
+  # Example:
+  # nodeSelector:
+  #   disktype: ssd
+  nodeSelector: {}
+
+  ## TLS configuration for the communication between redis and Cyberwatch
+  ## If `tls.secret` is provided, the secret is mounted to the redis container
+  ## Used with `external` set to true, the port TLS of redis is exposed as port 6379
+  tls:
+
+    ## Name of the secret that contains the certificate of the redis.
+    ## Use it with an external redis to store the root certificate authority of the redis.
+    ## To create the secret, use `kubectl -n cyberwatch create secret generic YOUR_SECRET_NAME --from-file=redis-root-ca.pem=YOU_CERT_FILE`
+    ## and set YOUR_SECRET_NAME as value of redis.tls.secret.
+    secret:
+
+    ## Use an existing root ca certificate to connect to the redis.
+    ## Used for connection with external redis.
+    ## The certificat must be in base64. It will be stored in the secret `cbw-helm-redis-root-ca`
+    ## Warning: `redis.tls.secret` must be null or empty.
+    redisRootCa:
+
+# key is the secret used in all rails containers to store sensitive information
+key:
+  base:
+  ## Reference to an existing Kubernetes secret for the key base.
+  ## If set, base will be read from this secret instead of values.yaml.
+  ## Example:
+  ##   baseSecret:
+  ##     name: my-key-secret
+  ##     key: base
+  baseSecret:
+  credential:
+  ## Reference to an existing Kubernetes secret for the key credential.
+  ## If set, credential will be read from this secret instead of values.yaml.
+  ## Example:
+  ##   credentialSecret:
+  ##     name: my-key-secret
+  ##     key: credential
+  credentialSecret:
+
+## rails contain configuration about the application
+# rails:
+#   env: production
+#   max_threads: "5"
+#   web_concurrency: "4"
+
+# sidekiq-master parameters
+# The sidekiq-master must be unique and available only on the master node or on
+# a single node.
+# This pod must not be replicated.
+sidekiqMaster:
+
+  # Set true to enable the sidekiq-master container
+  # BE CAREFUL! Use the sidekiqMaster only on single or master-node
+  enabled: True
+
+  resources:
+    limits:
+      memory: "4G"
+      cpu: "1"
+    requests:
+      memory: "400M"
+      cpu: "0.1"
+
+  ## Extra volumes to add to the pod.
+  extraVolumes: []
+
+  ## Extra volume mounts to add to the container.
+  extraVolumeMounts: []
+
+  ## Extra labels to add to the pod.
+  extraLabels: {}
+
+  ## Extra Annotations to add to the pod.
+  ## Be careful when adding annotations to pods as they can have undesirable side effects on pods.
+  ## Pay attention to existing annotations in the pod.
+  extraAnnotations: {}
+
+  ## A dictionnary of extra environment variables
+  ## E.g.
+  ## env:
+  ##   HOSTNAME: value
+  env: {}
+
+  ## Parameters for container images.
+  image:
+
+    # registry: harbor.cyberwatch.fr
+    repository: olympe
+    # tag: latest
+    # pullPolicy: Always
+    # pullSecrets: []
+
+  ## Deployment pod host aliases
+  ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
+  ##
+  hostAliases: []
+
+  # Node labels used to schedule the pod on specific nodes.
+  # Example:
+  # nodeSelector:
+  #   disktype: ssd
+  nodeSelector: {}
+
+
+# sidekiq-node parameters
+sidekiqNode:
+
+  # Set to true to enable the sidekiq-node container
+  enabled: true
+
+  resources:
+    limits:
+      memory: "4G"
+      cpu: "1"
+    requests:
+      memory: "400M"
+      cpu: "0.1"
+
+  ## Extra volumes to add to the pod.
+  extraVolumes: []
+
+  ## Extra volume mounts to add to the container.
+  extraVolumeMounts: []
+
+  ## Extra labels to add to the pod.
+  extraLabels: {}
+
+  ## Extra Annotations to add to the pod.
+  ## Be careful when adding annotations to pods as they can have undesirable side effects on pods.
+  ## Pay attention to existing annotations in the pod.
+  extraAnnotations: {}
+
+  ## DEPRECATED: An array to add extra environment variables to the container.
+  ## E.g.
+  ## extraEnvVars:
+  ##  - name: ENV_VAR
+  ##    value: "env_var_value"
+  # extraEnvVars: []
+
+  ## A dictionnary of extra environment variables
+  ## E.g.
+  ## env:
+  ##   HOSTNAME: value
+  env: {}
+
+  ## Parameters for container images.
+  image:
+
+    # registry: harbor.cyberwatch.fr
+    repository: olympe
+    # tag: latest
+    # pullPolicy: Always
+    # pullSecrets: []
+
+  ## Deployment pod host aliases
+  ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
+  ##
+  hostAliases: []
+
+  # Node labels used to schedule the pod on specific nodes.
+  # Example:
+  # nodeSelector:
+  #   disktype: ssd
+  nodeSelector: {}
+
+  # Number of replicas of the pod.
+  replicaCount: 1
+
+
+# sidekiq parameters
+sidekiq:
+
+  # Set to true to enable the sidekiq container
+  enabled: true
+
+  resources:
+    limits:
+      memory: "4G"
+      cpu: "1"
+    requests:
+      memory: "400M"
+      cpu: "0.1"
+
+  ## Extra volumes to add to the pod.
+  extraVolumes: []
+
+  ## Extra volume mounts to add to the container.
+  extraVolumeMounts: []
+
+  ## Extra labels to add to the pod.
+  extraLabels: {}
+
+  ## Extra Annotations to add to the pod.
+  ## Be careful when adding annotations to pods as they can have undesirable side effects on pods.
+  ## Pay attention to existing annotations in the pod.
+  extraAnnotations: {}
+
+  ## DEPRECATED: An array to add extra environment variables to the container.
+  ## E.g.
+  ## extraEnvVars:
+  ##  - name: ENV_VAR
+  ##    value: "env_var_value"
+  # extraEnvVars: []
+
+  ## A dictionnary of extra environment variables
+  ## E.g.
+  ## env:
+  ##   HOSTNAME: value
+  env: {}
+
+  ## Parameters for container images.
+  image:
+
+    # registry: harbor.cyberwatch.fr
+    repository: olympe
+    # tag:
+    # pullPolicy: Always
+    # pullSecrets: []
+
+  ## Deployment pod host aliases
+  ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
+  ##
+  hostAliases: []
+
+  # Node labels used to schedule the pod on specific nodes.
+  # Example:
+  # nodeSelector:
+  #   disktype: ssd
+  nodeSelector: {}
+
+  # Number of replicas of the pod.
+  replicaCount: 1
+
+
+# elasticsearch parameters
+elasticsearch:
+
+  # Set to true to enable the elasticsearch container
+  enabled: true
+
+  resources:
+    limits:
+      memory: "1.5G"
+      cpu: "2"
+    requests:
+      memory: "150M"
+      cpu: "0.2"
+
+  ## Extra volumes to add to the pod.
+  extraVolumes: []
+
+  ## Extra volume mounts to add to the container.
+  extraVolumeMounts: []
+
+  ## Extra labels to add to the pod.
+  extraLabels: {}
+
+  ## Extra Annotations to add to the pod.
+  ## Be careful when adding annotations to pods as they can have undesirable side effects on pods.
+  ## Pay attention to existing annotations in the pod.
+  extraAnnotations: {}
+
+  ## DEPRECATED: An array to add extra environment variables to the container.
+  ## E.g.
+  ## extraEnvVars:
+  ##  - name: ENV_VAR
+  ##    value: "env_var_value"
+  # extraEnvVars: []
+
+  ## A dictionnary of extra environment variables
+  ## E.g.
+  ## env:
+  ##   HOSTNAME: value
+  env:
+    ES_JAVA_OPTS: "-Xmx512m -Xms512m"
+
+  ## Parameters for container images.
+  image:
+
+    # registry: harbor.cyberwatch.fr
+    repository: elasticsearch-oss
+    # tag:
+    # pullPolicy: Always
+    # pullSecrets: []
+
+  ## Deployment pod host aliases
+  ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
+  ##
+  hostAliases: []
+
+  # Node labels used to schedule the pod on specific nodes.
+  # Example:
+  # nodeSelector:
+  #   disktype: ssd
+  nodeSelector: {}
+
+
+# kibana parameters
+kibana:
+
+  # Set to true to enable the kibana container
+  enabled: true
+
+  resources:
+    limits:
+      memory: "1.5G"
+      cpu: "2"
+    requests:
+      memory: "150M"
+      cpu: "0.2"
+
+  ## Extra volumes to add to the pod.
+  extraVolumes: []
+
+  ## Extra volume mounts to add to the container.
+  extraVolumeMounts: []
+
+  ## Extra labels to add to the pod.
+  extraLabels: {}
+
+  ## Extra Annotations to add to the pod.
+  ## Be careful when adding annotations to pods as they can have undesirable side effects on pods.
+  ## Pay attention to existing annotations in the pod.
+  extraAnnotations: {}
+
+  ## DEPRECATED: An array to add extra environment variables to the container.
+  ## E.g.
+  ## extraEnvVars:
+  ##  - name: ENV_VAR
+  ##    value: "env_var_value"
+  # extraEnvVars: []
+
+  ## A dictionnary of extra environment variables
+  ## E.g.
+  ## env:
+  ##   HOSTNAME: value
+  env: {}
+
+  ## Parameters for container images.
+  image:
+
+    # registry: harbor.cyberwatch.fr
+    repository: kibana-oss
+    # tag:
+    # pullPolicy: Always
+    # pullSecrets: []
+
+  ## Deployment pod host aliases
+  ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
+  ##
+  hostAliases: []
+
+  # Node labels used to schedule the pod on specific nodes.
+  # Example:
+  # nodeSelector:
+  #   disktype: ssd
+  nodeSelector: {}
+
+
+# Third parties parameters
+thirdParties:
+
+  # Set to true to enable the third-parties container
+  enabled: true
+
+  resources:
+    limits:
+      memory: "64M"
+      cpu: "1"
+    requests:
+      memory: "10M"
+      cpu: "0.1"
+
+  ## Extra volumes to add to the pod.
+  extraVolumes: []
+
+  ## Extra volume mounts to add to the container.
+  extraVolumeMounts: []
+
+  ## Extra labels to add to the pod.
+  extraLabels: {}
+
+  ## Extra Annotations to add to the pod.
+  ## Be careful when adding annotations to pods as they can have undesirable side effects on pods.
+  ## Pay attention to existing annotations in the pod.
+  extraAnnotations: {}
+
+  ## DEPRECATED: An array to add extra environment variables to the container.
+  ## E.g.
+  ## extraEnvVars:
+  ##  - name: ENV_VAR
+  ##    value: "env_var_value"
+  # extraEnvVars: []
+
+  ## A dictionnary of extra environment variables
+  ## E.g.
+  ## env:
+  ##   HOSTNAME: value
+  env: {}
+
+  ## Parameters for container images.
+  image:
+
+    # registry: harbor.cyberwatch.fr
+    repository: third_parties
+    # tag:
+    # pullPolicy: Always
+    # pullSecrets: []
+
+  ## Deployment pod host aliases
+  ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
+  ##
+  hostAliases: []
+
+  # Node labels used to schedule the pod on specific nodes.
+  # Example:
+  # nodeSelector:
+  #   disktype: ssd
+  nodeSelector: {}
+
+
+# Cache parameters
+cache:
+
+  # Set to true to enable the cache container
+  enabled: true
+
+  resources:
+    limits:
+      memory: "1G"
+      cpu: "1"
+    requests:
+      memory: "100M"
+      cpu: "0.1"
+
+  ## Extra volumes to add to the pod.
+  extraVolumes: []
+
+  ## Extra volume mounts to add to the container.
+  extraVolumeMounts: []
+
+  ## Extra labels to add to the pod
+  extraLabels: {}
+
+  ## Extra Annotations to add to the pod.
+  ## Be careful when adding annotations to pods as they can have undesirable side effects on pods.
+  ## Pay attention to existing annotations in the pod.
+  extraAnnotations: {}
+
+  ## DEPRECATED: An array to add extra environment variables to the container.
+  ## E.g.
+  ## extraEnvVars:
+  ##  - name: ENV_VAR
+  ##    value: "env_var_value"
+  # extraEnvVars: []
+
+  ## A dictionnary of extra environment variables
+  ## E.g.
+  ## env:
+  ##   HOSTNAME: value
+  env: {}
+
+  ## Parameters for container images.
+  image:
+
+    # registry: harbor.cyberwatch.fr
+    repository: redis
+    # tag:
+    # pullPolicy: Always
+    # pullSecrets: []
+
+  ## Deployment pod host aliases
+  ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
+  ##
+  hostAliases: []
+
+  # Node labels used to schedule the pod on specific nodes.
+  # Example:
+  # nodeSelector:
+  #   disktype: ssd
+  nodeSelector: {}
+
+
+# Service used to scan Network targets and Websites
+webScanner:
+
+  # Set to true to enable the webScanner container
+  enabled: true
+
+  # API key used by the scanner to authenticate with Sidekiq.
+  web_scanner_api_key:
+  ## Reference to an existing Kubernetes secret for the web scanner API key.
+  ## If set, web_scanner_api_key will be read from this secret instead of values.yaml.
+  ## Example:
+  ##   webScannerApiKeySecret:
+  ##     name: my-scanner-secret
+  ##     key: web-scanner-api-key
+  webScannerApiKeySecret:
+
+  # Number of replicas of the pod.
+  replicaCount: 1
+
+  resources:
+    limits:
+      memory: "4G"
+      cpu: "2"
+    requests:
+      memory: "400M"
+      cpu: "0.2"
+
+  ## Extra volumes to add to the pod.
+  extraVolumes: []
+
+  ## Extra volume mounts to add to the container.
+  extraVolumeMounts: []
+
+  ## Extra labels to add to the pod.
+  extraLabels: {}
+
+  ## Extra Annotations to add to the pod.
+  ## Be careful when adding annotations to pods as they can have undesirable side effects on pods.
+  ## Pay attention to existing annotations in the pod.
+  extraAnnotations: {}
+
+  ## A dictionnary of extra environment variables
+  ## E.g.
+  ## env:
+  ##   HOSTNAME: value
+  env: {}
+
+  ## Parameters for container images.
+  image:
+
+    # registry: harbor.cyberwatch.fr
+    repository: heimdall
+    # tag:
+    # pullPolicy: Always
+    # pullSecrets: []
+
+  ## Deployment pod host aliases
+  ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
+  ##
+  hostAliases: []
+
+  # Node labels used to schedule the pod on specific nodes.
+  # Example:
+  # nodeSelector:
+  #   disktype: ssd
+  nodeSelector: {}
+
+
+# Service used to scan images
+containerScanner:
+  # Set to true to enable the containerScanner container
+  enabled: true
+
+  # API key used by the scanner to authenticate with Sidekiq.
+  container_scanner_api_key:
+  ## Reference to an existing Kubernetes secret for the container scanner API key.
+  ## If set, container_scanner_api_key will be read from this secret instead of values.yaml.
+  ## Example:
+  ##   containerScannerApiKeySecret:
+  ##     name: my-scanner-secret
+  ##     key: container-scanner-api-key
+  containerScannerApiKeySecret:
+
+  # Number of replicas of the pod.
+  replicaCount: 1
+
+  resources:
+    limits:
+      memory: "4G"
+      cpu: "2"
+    requests:
+      memory: "400M"
+      cpu: "0.1"
+
+  ## DEPRECATED: The value set the limit of an emptyDir. Use cacheStorageSize or existingClaim instead.
+  ## The container-scanner needs a large cache volume to download container images (default: 40G)
+  ## The cache_size_limit determine the limit of the cache directory. A too value too can results in
+  ## error 'No Space Left' error when scanning docker images.
+  cache_size_limit:
+
+  ## Name of a PersistentVolumeClaim to use to store containerScanner cache data.
+  ## When set, the default containerScanner volume and volume claim are not loaded.
+  # existingClaim: ""
+
+  ## Size of the persistendVolume for containerScanner cache.  The
+  ## container-scanner needs a large cache volume to download container images
+  ## (default: 40G) A volume too small can results in error 'No Space Left'
+  ## error when scanning docker images.
+  cacheStorageSize: 40Gi
+
+  ## Extra volumes to add to the pod.
+  extraVolumes: []
+
+  ## Extra volume mounts to add to the container.
+  extraVolumeMounts: []
+
+  ## Extra labels to add to the pod.
+  extraLabels: {}
+
+  ## Extra Annotations to add to the pod.
+  ## Be careful when adding annotations to pods as they can have undesirable side effects on pods.
+  ## Pay attention to existing annotations in the pod.
+  extraAnnotations: {}
+
+  ## A dictionnary of extra environment variables
+  ## E.g.
+  ## env:
+  ##   HOSTNAME: value
+  env: {}
+
+  ## Parameters for container images.
+  image:
+
+    # registry: harbor.cyberwatch.fr
+    repository: cetus
+    #pullPolicy: Never
+    # tag:
+    # pullPolicy: Always
+    # pullSecrets: []
+
+  ## Deployment pod host aliases
+  ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
+  ##
+  hostAliases: []
+
+  # Node labels used to schedule the pod on specific nodes.
+  # Example:
+  # nodeSelector:
+  #   disktype: ssd
+  nodeSelector: {}
+
+internalCbw:
+  ## These variables should not be edited by the user
+  global:
+    tls:
+      CaSecret: cyberwatch-root-ca
+      rootCaFilename: root-ca.crt
+  database:
+    tls:
+      CertSecret: cbw-db-tls
+      rootCaFilename: db-root-ca.pem
+      rootCaHelmSecret: cbw-helm-db-root-ca
+  redis:
+    tls:
+      CertSecret: cbw-redis-tls
+      rootCaFilename: redis-root-ca.pem
+      rootCaHelmSecret: cbw-helm-redis-root-ca
+  containerScanner:
+    persistentVolumeName: "cyberwatch-data-container-scanner"
+    persistentVolumeClaimName: "cyberwatch-data-container-scanner-claim"

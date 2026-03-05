@@ -1,0 +1,72 @@
+{{- if .Values.cache.enabled }}
+{{ include "cbw.service" (dict "name" "cache" "root" $) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cache
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cache
+  strategy:
+    type: {{ .Values.UpdateStrategyType }}
+  template:
+    metadata:
+      labels:
+        app: cache
+        {{- if .Values.cache.extraLabels }}
+        {{- toYaml $.Values.cache.extraLabels | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- include "cbw.fileCheckSum" (dict "file" "secret.yml" "context" .) | nindent 8 }}
+        {{- if .Values.cache.extraAnnotations }}
+        {{- toYaml $.Values.cache.extraAnnotations | nindent 8 }}
+        {{- end }}
+    spec:
+      hostAliases: {{- include "cbw.render" (dict "value" (concat .Values.cache.hostAliases .Values.global.hostAliases) "context" $) | nindent 8 }}
+      nodeSelector: {{- include "cbw.render" (dict "value" .Values.cache.nodeSelector "context" $) | nindent 8 }}
+      containers:
+        {{- include "cbw.image" (dict "image" .Values.cache.image "global" .Values.global) | nindent 6 }}
+        name: cache
+        securityContext:
+          allowPrivilegeEscalation: false
+        livenessProbe:
+          exec:
+            command:
+              - sh
+              - -c
+              - redis-cli -a "${REDIS_PASSWORD}" PING | grep PONG
+          periodSeconds: 20
+          failureThreshold: 30
+        startupProbe:
+          exec:
+            command:
+              - sh
+              - -c
+              - redis-cli -a "${REDIS_PASSWORD}" PING | grep PONG
+          periodSeconds: 20
+          failureThreshold: 60
+        resources:
+{{ toYaml .Values.cache.resources | indent 10 }}
+        env:
+{{ include "cbw.env-secret" (dict "key" "redis-password" "env" "REDIS_PASSWORD" "secretRef" .Values.redis.passwordSecret) | indent 8 }}
+        {{- if .Values.cache.extraEnvVars }}
+        {{- include "cbw.render" (dict "value" .Values.cache.extraEnvVars "context" $) | nindent 8 }}
+        {{- end }}
+        {{- range $key, $value := .Values.cache.env }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        volumeMounts:
+        {{- if .Values.cache.extraVolumeMounts }}
+        {{- include "cbw.render" (dict "value" .Values.cache.extraVolumeMounts "context" $) | nindent 8 }}
+        {{- end }}
+      volumes:
+      {{- if .Values.cache.extraVolumes }}
+      {{- include "cbw.render" (dict "value" .Values.cache.extraVolumes "context" $) | nindent 6 }}
+      {{- end }}
+      {{- include "cbw.imagePullSecrets" (dict "image" .Values.cache.image "global" .Values.global) | nindent 6 }}
+{{- end }}

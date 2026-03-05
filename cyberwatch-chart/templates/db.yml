@@ -1,0 +1,137 @@
+{{- if not .Values.database.external }}
+{{ include "cbw.service" (dict "name" "db" "root" $) }}
+{{ if eq .Values.node.type "master" }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: exposed-db
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: NodePort
+  selector:
+    app: db
+  ports:
+    - port: 3306
+  externalIPs:
+    - {{ .Values.node.ip }}
+{{- end }}
+{{- if or (eq .Values.node.type "single") (eq .Values.node.type "master") }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cyberwatch-db-config
+  namespace: {{ .Release.Namespace }}
+data:
+  99-cyberwatch-tls.cnf: |+
+    [mysqld]
+    ssl-ca=/run/secrets/ca-cert/{{ .Values.internalCbw.database.tls.rootCaFilename }}
+    ssl-cert=/run/secrets/tls-cert/db-tls.crt
+    ssl-key=/run/secrets/tls-cert/db-tls.key
+{{- end }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+        {{- if .Values.database.extraLabels }}
+        {{- toYaml .Values.database.extraLabels | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- include "cbw.fileCheckSum" (dict "file" "secret.yml" "context" $) | nindent 8 }}
+        {{- if .Values.database.extraAnnotations }}
+        {{- toYaml $.Values.database.extraAnnotations | nindent 8 }}
+        {{- end }}
+    spec:
+      hostAliases: {{- include "cbw.render" (dict "value" (concat .Values.database.hostAliases .Values.global.hostAliases) "context" $) | nindent 8 }}
+      nodeSelector: {{- include "cbw.render" (dict "value" .Values.database.nodeSelector "context" $) | nindent 8 }}
+      securityContext:
+        # mysql user = 999
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+      containers:
+        {{- include "cbw.image" (dict "image" .Values.database.image "global" .Values.global) | nindent 6 }}
+        name: db
+        securityContext:
+          allowPrivilegeEscalation: false
+        resources:
+{{ toYaml .Values.database.resources | indent 10 }}
+        env:
+{{ include "cbw.env-secret" (dict "key" "mysql-root-password" "env" "MYSQL_ROOT_PASSWORD" "secretRef" .Values.database.rootPasswordSecret) | indent 8 }}
+{{ include "cbw.env-secret" (dict "key" "mysql-hostname"        "env" "MYSQL_HOSTNAME")        | indent 8 }}
+{{ include "cbw.env-secret" (dict "key" "mysql-database"        "env" "MYSQL_DATABASE")        | indent 8 }}
+{{ include "cbw.env-secret" (dict "key" "mysql-password"        "env" "MYSQL_PASSWORD" "secretRef" .Values.database.passwordSecret) | indent 8 }}
+{{ include "cbw.env-secret" (dict "key" "mysql-port"            "env" "MYSQL_PORT")            | indent 8 }}
+{{ include "cbw.env-secret" (dict "key" "mysql-user"            "env" "MYSQL_USER")            | indent 8 }}
+        {{- if .Values.database.extraEnvVars }}
+        {{- include "cbw.render" (dict "value" .Values.database.extraEnvVars "context" $) | nindent 8 }}
+        {{- end }}
+        {{- range $key, $value := .Values.database.env }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        ports:
+        - containerPort: 3306
+          name: db
+        volumeMounts:
+        - name: data-db
+          mountPath: /var/lib/mysql
+        - name: db-root-ca
+          mountPath: /run/secrets/ca-cert
+          readOnly: true
+        - name: db-tls
+          mountPath: /run/secrets/tls-cert
+          readOnly: true
+        - name: cyberwatch-db-config
+          mountPath: /etc/mysql/mariadb.conf.d/99-cyberwatch-tls.cnf
+          subPath: 99-cyberwatch-tls.cnf
+          readOnly: true
+        {{- if .Values.database.extraVolumeMounts }}
+        {{- include "cbw.render" (dict "value" .Values.database.extraVolumeMounts "context" $) | nindent 8 }}
+        {{- end }}
+      volumes:
+      - name: cyberwatch-db-config
+        configMap:
+          name: cyberwatch-db-config
+          optional: true
+          defaultMode: 0444
+      {{- if .Values.database.existingClaim }}
+      - name: data-db
+        persistentVolumeClaim:
+          claimName: {{ .Values.database.existingClaim }}
+      {{- else }}
+      - name: data-db
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-data-db-claim
+      {{- end }}
+      - name: db-root-ca
+        secret:
+          secretName: {{ .Values.internalCbw.global.tls.CaSecret }}
+          items:
+            - key: {{ .Values.internalCbw.global.tls.rootCaFilename }}
+              path: {{ .Values.internalCbw.database.tls.rootCaFilename }}
+      - name: db-tls
+        secret:
+          secretName: {{ .Values.internalCbw.database.tls.CertSecret }}
+          items:
+            - key: tls.crt
+              path: db-tls.crt
+            - key: tls.key
+              path: db-tls.key
+      {{- if .Values.database.extraVolumes }}
+      {{- include "cbw.render" (dict "value" .Values.database.extraVolumes "context" $) | nindent 6 }}
+      {{- end }}
+      {{- include "cbw.imagePullSecrets" (dict "image" .Values.database.image "global" .Values.global) | nindent 6 }}
+{{- end }}

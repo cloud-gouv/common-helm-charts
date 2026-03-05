@@ -1,0 +1,70 @@
+{{- if (and .Values.kibana.enabled (ne .Values.node.type "satellite")) }}
+{{ include "cbw.service" (dict "name" "kibana" "root" $) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kibana
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kibana
+      tier: frontend
+  strategy:
+    type: {{ .Values.UpdateStrategyType }}
+  template:
+    metadata:
+      labels:
+        app: kibana
+        tier: frontend
+        {{- if .Values.kibana.extraLabels }}
+        {{- toYaml .Values.kibana.extraLabels | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- if .Values.kibana.extraAnnotations }}
+        {{- toYaml $.Values.kibana.extraAnnotations | nindent 8 }}
+        {{- end }}
+    spec:
+      hostAliases: {{- include "cbw.render" (dict "value" (concat .Values.kibana.hostAliases .Values.global.hostAliases) "context" $) | nindent 8 }}
+      nodeSelector: {{- include "cbw.render" (dict "value" .Values.kibana.nodeSelector "context" $) | nindent 8 }}
+      containers:
+        {{- include "cbw.image" (dict "image" .Values.kibana.image "global" .Values.global) | nindent 6 }}
+        name: kibana
+        securityContext:
+          allowPrivilegeEscalation: false
+        livenessProbe:
+          httpGet:
+            path: /api/status
+            port: 5601
+          periodSeconds: 20
+          failureThreshold: 30
+          timeoutSeconds: 5
+        startupProbe:
+          httpGet:
+            path: /api/status
+            port: 5601
+          periodSeconds: 20
+          failureThreshold: 60
+          timeoutSeconds: 5
+        resources:
+{{ toYaml .Values.kibana.resources | indent 10 }}
+        env:
+        {{- if .Values.kibana.extraEnvVars }}
+        {{- include "cbw.render" (dict "value" .Values.kibana.extraEnvVars "context" $) | nindent 8 }}
+        {{- end }}
+        {{- range $key, $value := .Values.kibana.env }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        volumeMounts:
+        {{- if .Values.kibana.extraVolumeMounts }}
+        {{- include "cbw.render" (dict "value" .Values.kibana.extraVolumeMounts "context" $) | nindent 8 }}
+        {{- end }}
+      volumes:
+      {{- if .Values.kibana.extraVolumes }}
+      {{- include "cbw.render" (dict "value" .Values.kibana.extraVolumes "context" $) | nindent 6 }}
+      {{- end }}
+      {{- include "cbw.imagePullSecrets" (dict "image" .Values.kibana.image "global" .Values.global) | nindent 6 }}
+{{- end }}

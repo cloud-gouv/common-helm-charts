@@ -1,0 +1,60 @@
+{{- if .Values.thirdParties.enabled }}
+{{ include "cbw.service" (dict "name" "third-parties" "root" $) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: third-parties
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: third-parties
+  strategy:
+    type: {{ .Values.UpdateStrategyType }}
+  template:
+    metadata:
+      labels:
+        app: third-parties
+        {{- if .Values.thirdParties.extraLabels }}
+        {{- toYaml $.Values.thirdParties.extraLabels | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- if .Values.thirdParties.extraAnnotations }}
+        {{- toYaml $.Values.thirdParties.extraAnnotations | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "cbw.sameNodeAsPod" (dict "name" "web") | nindent 6 }}
+      hostAliases: {{- include "cbw.render" (dict "value" (concat .Values.thirdParties.hostAliases .Values.global.hostAliases) "context" $) | nindent 8 }}
+      nodeSelector: {{- include "cbw.render" (dict "value" .Values.thirdParties.nodeSelector "context" $) | nindent 8 }}
+      containers:
+        {{- include "cbw.image" (dict "image" .Values.thirdParties.image "global" .Values.global) | nindent 6 }}
+        name: third-parties
+        resources:
+{{ toYaml .Values.thirdParties.resources | indent 10 }}
+        volumeMounts:
+        - name: data-third-parties
+          mountPath: /olympe/public/third_parties
+        {{- if .Values.thirdParties.extraVolumeMounts }}
+        {{- include "cbw.render" (dict "value" .Values.thirdParties.extraVolumeMounts "context" $) | nindent 8 }}
+        {{- end }}
+        securityContext:
+          allowPrivilegeEscalation: false
+        env:
+        {{- if .Values.thirdParties.extraEnvVars }}
+        {{- include "cbw.render" (dict "value" .Values.thirdParties.extraEnvVars "context" $) | nindent 8 }}
+        {{- end }}
+        {{- range $key, $value := .Values.thirdParties.env }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+      volumes:
+      - name: data-third-parties
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-data-third-parties-claim
+      {{- if .Values.thirdParties.extraVolumes }}
+      {{- include "cbw.render" (dict "value" .Values.thirdParties.extraVolumes "context" $) | nindent 6 }}
+      {{- end }}
+      {{- include "cbw.imagePullSecrets" (dict "image" .Values.thirdParties.image "global" .Values.global) | nindent 6 }}
+{{- end }}

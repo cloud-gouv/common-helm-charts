@@ -1,0 +1,113 @@
+{{- if .Values.nginx.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    app: nginx
+  ports:
+    - protocol: TCP
+      name: https
+      port: 443
+      targetPort: 443
+---
+apiVersion: apps/v1
+{{- if .Values.ingress.enabled }}
+kind: Deployment
+{{- else }}
+kind: DaemonSet
+{{- end }}
+metadata:
+  name: nginx
+  namespace: {{ .Release.Namespace }}
+spec:
+{{- if .Values.ingress.enabled }}
+  {{- if not (eq (include "autoscalingEnabledFor" (dict "name" "nginx" "targets" .Values.autoscaling.targets)) "true") }}
+  replicas: 1
+  {{- end }}
+{{- end }}
+  selector:
+    matchLabels:
+      app: nginx
+{{- if .Values.ingress.enabled }}
+{{- /* Set updateStrategy.type only if Ingress is enabled: NGINX runs as a Deployment (supports updateStrategy). Without Ingress, it's a DaemonSet (do not support updateStrategy). */}}
+  strategy:
+    type: {{ .Values.UpdateStrategyType }}
+{{- end }}
+  template:
+    metadata:
+      labels:
+        app: nginx
+        {{- if .Values.nginx.extraLabels }}
+        {{- toYaml .Values.nginx.extraLabels | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- include "cbw.fileCheckSum" (dict "file" "config.yml" "context" .) | nindent 8 }}
+        {{- if .Values.nginx.extraAnnotations }}
+        {{- toYaml $.Values.nginx.extraAnnotations | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- if and (eq .Values.global.image.pullPolicy "Never") .Values.thirdParties.enabled }}
+      {{- include "cbw.sameNodeAsPod" (dict "name" "web") | nindent 6 }}
+      {{- end }}
+      hostAliases: {{- include "cbw.render" (dict "value" (concat .Values.nginx.hostAliases .Values.global.hostAliases) "context" $) | nindent 8 }}
+      nodeSelector: {{- include "cbw.render" (dict "value" .Values.nginx.nodeSelector "context" $) | nindent 8 }}
+      containers:
+        {{- include "cbw.image" (dict "image" .Values.nginx.image "global" .Values.global) | nindent 6 }}
+        name: nginx
+        securityContext:
+          allowPrivilegeEscalation: false
+        resources:
+{{ toYaml .Values.nginx.resources | indent 10 }}
+        env:
+{{ include "cbw.nodeName" . | indent 8 }}
+{{ include "cbw.env-config" (dict "key" "use_hsts" "env" "ENABLE_HSTS") | indent 8 }}
+{{ include "cbw.env-config" (dict "key" "limit_to_api" "env" "ONLY_API_AND_THIRD_PARTIES") | indent 8 }}
+        {{- if .Values.nginx.extraEnvVars }}
+        {{- include "cbw.render" (dict "value" .Values.nginx.extraEnvVars "context" $) | nindent 8 }}
+        {{- end }}
+        {{- range $key, $value := .Values.nginx.env }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        envFrom:
+        - configMapRef:
+            name: cbw-config
+        ports:
+        - name: http
+          containerPort: 80
+          {{- if not .Values.ingress.enabled }}
+          hostPort: {{ .Values.nginx.httpPort }}
+          {{- end }}
+        - name: https
+          containerPort: 443
+          {{- if not .Values.ingress.enabled }}
+          hostPort: {{ .Values.nginx.httpsPort }}
+          {{- end }}
+        volumeMounts:
+        {{- if .Values.thirdParties.enabled }}
+        - name: data-third-parties
+          mountPath: /olympe/public/third_parties
+          readOnly: true
+        {{- end }}
+        - name: data-ssl
+          mountPath: /etc/nginx/ssl
+        {{- if .Values.nginx.extraVolumeMounts }}
+        {{- include "cbw.render" (dict "value" .Values.nginx.extraVolumeMounts "context" $) | nindent 8 }}
+        {{- end }}
+      volumes:
+      {{- if .Values.thirdParties.enabled }}
+      - name: data-third-parties
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-data-third-parties-claim
+      {{- end }}
+      - name: data-ssl
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-data-ssl-claim
+      {{- if .Values.nginx.extraVolumes }}
+      {{- include "cbw.render" (dict "value" .Values.nginx.extraVolumes "context" $) | nindent 6 }}
+      {{- end }}
+      {{- include "cbw.imagePullSecrets" (dict "image" .Values.nginx.image "global" .Values.global) | nindent 6 }}
+{{- end }}
