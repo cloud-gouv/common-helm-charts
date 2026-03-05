@@ -1,0 +1,40 @@
+{{/*
+    this template aims at generating all the required network-policies for the 'clients'
+*/}}
+
+
+{{- range $clientNamespaceName, $_ := .Values.clientNamespaces }}
+  {{/* let's not process system namespaces */}}
+  {{- if not (or (hasPrefix "kube-" $clientNamespaceName) (eq $clientNamespaceName "default")) }}
+
+{{/*
+  NetworkPolicies filtering the inbound traffic (from the perspective of the
+  namespace hosting this policy)
+*/}}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-ingress
+  namespace: {{ $clientNamespaceName }}
+  labels:
+    {{- include "client-namespaces.labels" $ | nindent 4 }}
+spec:
+  podSelector: {}                 # applies to all pods in the namespace hosting the policy
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector: {}             # target all pods in the namespaces selected below
+    - namespaceSelector:
+        matchLabels:
+          to-{{- $clientNamespaceName }}: "true"  # inbound traffic allowed from namespaces with this label
+    - namespaceSelector:
+        matchLabels:
+          access-to-all: "true"   # inbound traffic allowed from namespaces with this label too
+{{/*
+    NetworkPolicies filtering the outbound traffic (from the perspective of the
+    namespace hosting this policy)
+*/}}
+  {{- end }}
+{{- end }}

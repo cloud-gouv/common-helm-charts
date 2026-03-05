@@ -1,0 +1,26 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "minio-backup.name" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ .Values.pvc.storageClassName }}
+  resources:
+    requests:
+      storage: {{ .Values.pvc.storageSize }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "minio-backup.name" . }}-cache
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ .Values.cache.storageClassName }}
+  resources:
+    requests:
+      storage: {{ .Values.cache.storageSize }}

@@ -1,0 +1,89 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "minio-backup.name" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: {{ .Values.backup.schedule }}
+  {{- if not .Values.backup.enabled }}
+  suspend: true
+  {{- end }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      template:
+        spec:
+          {{- with .Values.extraPodTemplates }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+          restartPolicy: Never
+          securityContext:
+          {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          containers:
+          - name: minio-clients
+            image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+            command: ["/bin/bash", "-euo", "pipefail", "-c",]
+            args:
+            - |
+              echo "Script execution started at $(date)"
+              # Backup each bucket independently so we can remove a single client data (GDPR compliance)
+              bucketList=$(mc ls {{ .Values.minio.tenantName }} --json | jq -r .key)
+
+              # 1st make a local copy of each buckets
+              for bucket in ${bucketList}; do
+                mc mirror --overwrite {{ .Values.minio.tenantName }}/${bucket} /data/${bucket}
+              done
+
+              # 2nd make a remote backup
+              ## init repo if necessary
+              EXIT_CODE=0
+              restic cat config || EXIT_CODE=$?
+              [[ $EXIT_CODE -eq 10 ]] && restic init
+
+              # Push backup to remote
+              for bucket in ${bucketList}; do
+                # check if directory exists. if the bucket was empty it won't exist
+                if [ -d /data/${bucket} ]; then
+                  restic --group-by paths backup /data/${bucket} --tag $(echo ${bucket} | tr -d "/")
+                else
+                  echo "Directory ${bucket} doens't exist, no data to back up"
+                fi
+              done
+
+              # Clean old backups
+              restic --group-by paths forget --keep-daily {{ .Values.backup.keepDaily }} --keep-weekly {{ .Values.backup.keepWeekly }} --keep-monthly {{ .Values.backup.keepMonthly }} --prune
+
+              echo "Script execution completed at $(date)"
+            env:
+              - name: TMPDIR
+                value: /app
+              - name: RESTIC_CACHE_DIR
+                value: /cache
+              - name: MC_CONFIG_DIR
+                value: "/data/.mc"
+            envFrom:
+              - secretRef:
+                  name: {{ include "minio-backup.name" . }}
+            {{- with .Values.resources }}
+            resources:
+            {{- toYaml . | nindent 14 }}
+            {{- end }}
+            securityContext:
+            {{- toYaml .Values.securityContext | nindent 14 }}
+            volumeMounts:
+            - mountPath: /app
+              name: tmpfs
+            - mountPath: /cache
+              name: cache
+            - name: data
+              mountPath: /data
+          volumes:
+          - emptyDir: {}
+            name: tmpfs
+          - name: cache
+            persistentVolumeClaim:
+              claimName: {{ include "minio-backup.name" . }}-cache
+          - name: data
+            persistentVolumeClaim:
+              claimName: {{ include "minio-backup.name" . }}

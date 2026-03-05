@@ -1,0 +1,19 @@
+{{/*
+    this template aims at generating all the required namespaces for the 'clients'
+*/}}
+
+{{- range $clientNamespaceName, $_ := .Values.clientNamespaces }}
+  {{/* let's not process system namespaces */}}
+  {{- if not (or (hasPrefix "kube-" $clientNamespaceName) (eq $clientNamespaceName "default")) }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $clientNamespaceName }}
+  labels:
+    {{- include "client-namespaces.labels" $ | nindent 4 }}
+    {{- with (index (index $.Values.clientNamespaces $clientNamespaceName) "labels") }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+{{- end }}

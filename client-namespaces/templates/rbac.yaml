@@ -1,0 +1,105 @@
+{{/* 
+    this template aims at generating all the required standard RBAC objects
+    that make sense in order to control what persmissions are granted to
+    the 'clients'*
+*/}}
+
+{{/* 
+    ClusterRole definition for read+write permissions that will
+    be assigned to 'standard' ServiceAccounts created at
+    Namespace provisioning time
+*/}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Values.clusterRoleRW | default "namespace-rw" }}
+  labels:
+    {{- include "client-namespaces.labels" $ | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets", "services", "pods", "pods/log", "pods/exec", "pods/portforward", "persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  - apiGroups: [""]
+    resources: ["nodes", "events", "endpoints", "namespaces", "persistentvolumes", "resourcequotas", "limitranges"]
+    verbs: ["get", "list", "watch"]
+
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "impersonate"]
+
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  - apiGroups: ["apps"]
+    resources: ["deployments", "daemonsets", "statefulsets", "replicasets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingressclasses", "networkpolicies"]
+    verbs: ["get", "list", "watch"]
+
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses", "volumeattachments"]
+    verbs: ["get", "list", "watch"] 
+
+{{/* 
+    RoleBinding to grant read+write access
+*/}}
+{{- range $clientNamespaceName, $clientNamespaceValue := .Values.clientNamespaces }}
+  {{/* let's not process system namespaces */}}
+  {{- if not (or (hasPrefix "kube-" $clientNamespaceName) (eq $clientNamespaceName "default")) }}
+    {{/* for each 'rbac' item let's create the associated Bindig */}}
+    {{- range $_, $rbacItem := (empty $clientNamespaceValue.rbac | ternary $.Values.defaults.rbac $clientNamespaceValue.rbac) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+      {{- if eq $rbacItem.bindingKind "ClusterRoleBinding" }}
+kind: ClusterRoleBinding
+      {{- else }}
+kind: RoleBinding
+      {{- end }}
+metadata:
+  name: "{{ $rbacItem.targetRoleName }}:4_{{ $rbacItem.subjectKind | lower }}:{{ $rbacItem.subjectName }}"
+  namespace: {{ $clientNamespaceName }}
+  labels:
+    {{- include "client-namespaces.labels" $ | nindent 4 }}
+subjects:
+      {{- if eq $rbacItem.subjectKind "ServiceAccount" }}
+  - kind: ServiceAccount
+    name: {{ $rbacItem.subjectName }}
+    namespace: {{ $clientNamespaceName }}
+      {{- else if eq $rbacItem.subjectKind "User" }}
+  - kind: User
+    name: {{ $rbacItem.subjectName }}
+    apiGroup: rbac.authorization.k8s.io
+      {{- else if eq $rbacItem.subjectKind "Group" }}
+  - kind: Group
+    name: {{ $rbacItem.subjectName }}
+    apiGroup: rbac.authorization.k8s.io
+      {{- end }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+      {{- if eq $rbacItem.targetRoleKind "ClusterRole" }}
+  kind: ClusterRole
+      {{- else }}
+  kind: Role
+      {{- end }}
+  name: {{ $rbacItem.targetRoleName }}
+    {{- end }} {{/* range $_, $rbacItem ... */}}
+  {{- end }} {{/* if not (or ...) */}}
+{{- end }} {{/* range $clientNamespaceName ...  */}}
+

@@ -1,0 +1,68 @@
+{{- $repoURL := .Values.source.repoURL }}
+{{- range $appName, $appData := .Values.applications }}
+  {{- if hasKey $appData "apps" }}
+  {{- range $app, $data := $appData.apps }}
+  {{- if eq "cluster-core" $app }}
+  {{- $enabled := (or (empty $data) (or (not (hasKey $data "enabled")) (eq $data.enabled true))) }}
+  {{- if $enabled }}
+---
+#
+# Application configuration for {{ $app }}-{{ $appName }}
+#
+# name: {{ $appName }}
+# namespace: {{ $.Values.namespace }}
+# source.repoURL: {{ $repoURL }}
+# source.targetRevision: {{ template "argocd-apps.defaultSourceTargetRevision" $ }}
+# source.path: {{ template "argocd-apps.defaultSourcePath" $ }}
+# destination.name: {{ template "argocd-apps.defaultDestinationName" (dict "data" $data "default" $appData.environment ) }}
+#
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  # here is the argocd app name for the cluster
+  name: {{ $app }}-{{ $appName }}
+  namespace: {{ $.Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    namespace: default
+    # here is the name of the new mgmt cluster
+    #   name: {{ $appName }}
+    name: {{ template "argocd-apps.defaultDestinationName" (dict "data" $data "default" $appName ) }}
+  source:
+    repoURL: {{ $repoURL }}
+    targetRevision: {{ template "argocd-apps.defaultSourceTargetRevision" $ }}
+    path: {{ template "argocd-apps.defaultSourcePath" $ }}
+    plugin:
+      name: helmfile-v1.0
+      env:
+        # here is the cluster name to configure
+        - name: ENV_NAME
+          value: {{ $appName | quote }}
+        - name: HELMFILE_FILE
+          value: "helmfile.d/cluster-step-02-configure-core"
+        - name: HELMFILE_MULTI_NAMESPACE
+          value: "true"
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+#    automated:
+#      prune: true
+#      selfHeal: true
+#      allowEmpty: true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        maxDuration: 3m0s
+        factor: 2
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+{{- end }}

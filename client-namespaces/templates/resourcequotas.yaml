@@ -1,0 +1,55 @@
+{{/* 
+    this template aims at generating all the required quotas & limitranges for the 'clients'
+*/}}
+
+{{- range $clientNamespaceName, $clientNamespaceValue := .Values.clientNamespaces }}
+  {{/* let's not process system namespaces */}}
+  {{- if not (or (hasPrefix "kube-" $clientNamespaceName) (eq $clientNamespaceName "default")) }}
+
+{{/*
+    ResourceQuotas for the 'clients'
+    setting the maximum amount of resources that can be requested by all the pods
+    in the namespace
+*/}}
+    {{- $quota := (merge $clientNamespaceValue.quotas $.Values.defaults.quotas) }}
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: default-quota
+  namespace: {{ $clientNamespaceName }}
+spec:
+  hard:
+    requests.cpu: {{ $quota.requestsCpu | quote }}
+    requests.memory: {{ $quota.requestsMemory | quote }}
+    limits.memory: {{ $quota.limitsMemory | quote }}
+    services.loadbalancers: {{ $quota.servicesLoadbalancers | quote }}
+    services.nodeports: {{ $quota.servicesNodeports | quote }}
+    count/pods: {{ $quota.countPods | quote }}
+    count/jobs.batch: {{ $quota.countJobs | quote }}
+    count/daemonsets.apps: {{ $quota.countDaemonsets | quote }}
+    requests.storage: {{ $quota.requestsStorage | quote }}
+    persistentvolumeclaims: {{ $quota.persistentVolumeClaims | quote }}
+
+{{/*
+    LimitRanges for the 'clients'
+    setting default values applied to containers if none is documented
+*/}}
+    {{- $limitRange := (merge $clientNamespaceValue.limitRanges $.Values.defaults.limitRanges) }}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-limitrange
+  namespace: {{ $clientNamespaceName }}
+spec:
+  limits:
+    - defaultRequest:     # default values applied to pod.spec.containers[*].resources.requests if omitted
+        cpu: {{ $limitRange.defaultRequestCpu | quote }}
+        memory: {{ $limitRange.defaultRequestMemory | quote }}
+      default:            # default values applied to pod.spec.containers[*].resources.limits if omitted
+        memory: {{ $limitRange.defaultLimitMemory | quote }}
+      type: Container
+
+  {{- end }} {{/* if not (or (hasPrefix ...) (eq ...) */}}
+{{- end }} {{/* range $clientNamespaceName ... */}}

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clustertcl-restore-script-config
+  namespace: {{ .Values.namespace }} 
+data:
+{{ (tpl (.Files.Glob "scripts/restore.sh").AsConfig .) | indent 2 }}
+{{ (tpl (.Files.Glob "scripts/createkubectlconfig.sh").AsConfig .) | indent 2 }}
+{{ (tpl (.Files.Glob "scripts/clusterctl_restore_from_s3.sh").AsConfig .) | indent 2 }}

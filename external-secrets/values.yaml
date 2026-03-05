@@ -1,0 +1,36 @@
+# When declaring an external secret, you must either specify a template for the secret to be created,
+# which will tell external-secret how it should look like. When using template, you must also declare
+# the secrets path and list all required secrets to be pulled from OpenBao.
+# Second option would be to use dataFrom key to declare what secret you want to pull from OpenBao,
+# but you can't play with templating, ESO will just do a simple copy/paste.
+
+#externalsecrets:
+#  mynew_secret:
+#    name: mynew-secret
+#    namespace: ns1
+#    type: Opaque
+#    secrets:
+#    - key: full/secret/path
+#      property: property_name_in_vault_key
+#    - key: full/secret/path
+#      property: property_name_in_vault_key2
+#    refreshInterval: 1h0m0s # Optional
+#    secretStoreKind: ClusterSecretStore # Optional
+#    secretStoreName: openbao-ppr # Optional
+#    template:
+#      mysecretkey: "{{ `{{ .property_name_in_vault_key }}` }}" # Enclose in backticks to avoid Helm templating
+#      mysecretkey2: "{{ `{{ .property_name_in_vault_key2 }}` }}" # Enclose in backticks to avoid Helm templating
+#    annotations:
+#      some: annot
+#    labels:
+#      some: labels
+#  mynew_secret2:
+#    name: mynew-secret
+#    namespace: ns1
+#    type: Opaque
+#    refreshInterval: 1h0m0s # Optional
+#    secretStoreKind: ClusterSecretStore # Optional
+#    secretStoreName: openbao-ppr # Optional
+#    dataFrom:
+#    - extract:
+#        key: name-of-my-secret

@@ -1,0 +1,62 @@
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+backup:
+  enabled: true
+  schedule: "10 0 * * *"
+  keepDaily: 30
+  keepWeekly: 15
+  keepMonthly: 6
+
+image:
+  repository: ghcr.io/cloud-gouv/minio-backup-docker-image
+  tag: 0.1.2
+
+pvc:
+  storageSize: 10Gi
+  storageClassName: bsu-gp2
+
+cache:
+  storageSize: 5Gi
+  storageClassName: bsu-gp2
+
+podSecurityContext:
+  fsGroup: 1000
+securityContext:
+  privileged: false
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
+resources:
+  requests:
+    memory: 128Mi
+  limits:
+    memory: 128Mi
+
+minio:
+  tenantName: datastore
+  # credentials to access local Minio instance
+  # user: minio
+  # pass: minio123
+  namespace: minio-datastore
+
+restic:
+  # Don't forget to set bucket name as well
+  repository: s3:https://oos.eu-west-2.outscale.com/bucket
+  # repositoryPassword can be anything you like it is used to encrypt/decrypt files in repo
+  repositoryPassword: ThisShouldBeSecured
+  # AK to access s3 repository
+  accessKey: something
+  # SK to access s3 repository
+  secretAccessKey: somethingelse
+
+extraPodTemplates:

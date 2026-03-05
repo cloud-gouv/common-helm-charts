@@ -1,0 +1,111 @@
+# Default values for argocd-apps.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+#applications: {}
+namespace: argocd
+
+configs:
+  credentialTemplates: {}
+#  credentialTemplates:
+#    https-creds:
+#       url: https://github.com/argoproj
+#       password: my-password
+#       username: my-username
+  credentialTemplatesBase64: {} # Useful with multiline values. Your secret will be base64 encoded.
+#  credentialTemplates64:
+#    https-creds:
+#       url: https://github.com/argoproj
+#       password: |
+#         my-multiline
+#         secret
+#       username: my-username
+  repositories: {}
+#  repositories:
+#    https-github:
+#       url: https://github.com/repo
+#       type: git
+#       project: default
+  externalSecrets: {}
+#    github-cloud-gouv-repo:
+#      secrets:
+#      - key: k8s/dev/github-cloud-gouv-repo
+#        property: githubAppID
+#      - key: k8s/dev/github-cloud-gouv-repo
+#        property: githubAppInstallationID
+#      - key: k8s/dev/github-cloud-gouv-repo
+#        property: githubAppPrivateKey
+#      - key: k8s/dev/github-cloud-gouv-repo
+#        property: url
+#      refreshInterval: 1h0m0s # Optional
+#      secretStoreKind: ClusterSecretStore # Optional
+#      secretStoreName: openbao-ppr # Optional
+
+source:
+  repoURL: https://github.com/cloud-gouv/repo
+  targetRevision: main
+  path: deploy
+
+applications: {}
+#  Examples
+# applications:
+#
+#  ### config of the bootstrap cluster which generates the mgmt cluster
+#
+#    cluster-mgmt-01-dev:
+#      environment: cluster-mgmt-01-dev
+#      apps:
+#        argocd-app-of-apps:
+#          environment: cluster-boot-01-dev # override default environment name
+#        cluster-api:
+#        cluster-core:
+#        cluster-workload:
+#        mgmt-step-01-cluster-api-operator:
+#          destination:
+#            name: "cluster-mgmt-01-dev"    #  this will override the remote cluster url on argocd bootstrap
+#        mgmt-step-02-cluster-api-operator-provider:
+##          destination:
+#            name: "cluster-mgmt-01-dev"
+#        mgmt-step-03-cluster-api-helm-addons:
+#          destination:
+#            name: "cluster-mgmt-01-dev"
+#
+#### config of the mgmt cluster
+#
+#    cluster-mgmt01-dev:
+#      environment: cluster-mgmt01-dev
+#      apps:
+#        argocd-app-of-apps:
+#        cluster-api:
+#        cluster-core:
+#        cluster-workload:
+#        mgmt-step-01-cluster-api-operator:
+#        mgmt-step-02-cluster-api-operator-provider:
+#        mgmt-step-03-cluster-api-helm-addons:
+#
+### config to deploy a workload cluster
+#
+#    cluster-workload-02-dev:
+#      environment: cluster-workload-02-dev
+#      apps:
+#        cluster-api:
+#        cluster-core:
+#        cluster-workload:
+#
+### config to deploy a minimal workload cluster (only cluster-api and core app)
+#
+#    cluster-workload-03-dev:
+#      environment: cluster-workload-03-dev
+#      apps:
+#        cluster-api:
+#        cluster-core:
+#        cluster-workload:
+#          enabled: false
+#
+#  ### config of cluster which uses a root apps-of-apps
+#  ### since the source (repoURL, path) is defined globally, you cannot use both "root-app" and "apps" in this file
+#
+#    cluster-mgmt-01-dev:
+#      environment: cluster-mgmt-01-dev
+#      apps:
+#        root-app:
+

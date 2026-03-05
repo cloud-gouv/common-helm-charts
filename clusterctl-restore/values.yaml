@@ -1,0 +1,42 @@
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+namespace: restore
+restore:
+  enabled: true
+  timestamp: ""
+
+image:
+  registry: ghcr.io
+  repository: cloud-gouv/backup-tools
+  tag: latest
+
+env: []
+
+storageSize: 1Gi
+
+#configs:
+#  credentialTemplates:
+#    s3-outscale-clusterctl-restore:
+#      AWS_BUCKET_NAME: _REPLACE_BUCKET_NAME_
+#      AWS_ACCESS_KEY_ID: _REPLACE_AWS_ACCESS_KEY_ID_
+#      AWS_SECRET_ACCESS_KEY: _REPLACE_AWS_SECRET_ACCESS_KEY_
+#      AWS_ENDPOINT_URL: _REPLACE_AWS_ENDPOINT_URL_
+#      AWS_DEFAULT_REGION: _REPLACE_AWS_DEFAULT_REGION
+#      SOPS_AGE_KEY: _REPLACE_SOPS_AGE_KEY_
+
+podSecurityContext: {}
+securityContext:
+  privileged: false
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+

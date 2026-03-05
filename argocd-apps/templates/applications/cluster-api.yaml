@@ -1,0 +1,110 @@
+{{- $repoURL := .Values.source.repoURL }}
+{{- range $appName, $appData := .Values.applications }}
+  {{- if hasKey $appData "apps" }}
+  {{- range $app, $data := $appData.apps }}
+  {{- if eq "cluster-api" $app }}
+  {{- $enabled := (or (empty $data) (or (not (hasKey $data "enabled")) (eq $data.enabled true))) }}
+  {{- if $enabled }}
+---
+#
+# Application configuration for {{ $app }}-{{ $appName }}
+#
+# name: {{ $appName }}
+# namespace: {{ $.Values.namespace }}
+# source.repoURL: {{ $repoURL }}
+# source.targetRevision: {{ template "argocd-apps.defaultSourceTargetRevision" $ }}
+# source.path: {{ template "argocd-apps.defaultSourcePath" $ }}
+# destination.name: {{ template "argocd-apps.defaultDestinationName" (dict "data" $data "default" $appData.environment ) }}
+#
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  # here is the argocd app name for the cluster
+  name: {{ $app }}-{{ $appName }}
+  namespace: {{ $.Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    namespace: default
+    # here is the url of the mgmt capi-cluster
+    #   name: in-cluster
+    name: {{ template "argocd-apps.defaultDestinationName" (dict "data" $data "default" "in-cluster" ) }}
+  source:
+    repoURL: {{ $repoURL }}
+    targetRevision: {{ template "argocd-apps.defaultSourceTargetRevision" $ }}
+    path: {{ template "argocd-apps.defaultSourcePath" $ }}
+    plugin:
+      name: helmfile-v1.0
+      env:
+        # here is the cluster name to create
+        - name: ENV_NAME
+          value: {{ $appName | quote }}
+        - name: HELMFILE_FILE
+          value: "helmfile.d/cluster-step-01-create"
+        - name: HELMFILE_MULTI_NAMESPACE
+          value: "true"
+  # FIX: argocd tracking remove cluster-api labels
+  #   ignore '.metadata.labels["cluster.x-k8s.io/name"'
+  #   ignore '.metadata.labels["cluster.x-k8s.io/cluster-name"]'
+  #   ignore '.metadata.labels["outscale.com/clusterUID"]'
+  #   and last ignore empty labels: '.metadata.labels| select(. == {})'
+  ignoreDifferences:
+  - group: cluster.x-k8s.io
+    kind: "*"
+    jqPathExpressions:
+      - '.metadata.labels["cluster.x-k8s.io/name"]'
+      - '.metadata.labels| select(. == {})'
+  - group: "infrastructure.cluster.x-k8s.io"
+    kind: "*"
+    jqPathExpressions:
+      - '.metadata.labels["cluster.x-k8s.io/cluster-name"]'
+      - '.metadata.labels["outscale.com/clusterUID"]'
+      - '.metadata.labels| select(. == {})'
+  - group: "controlplane.cluster.x-k8s.io"
+    kind: "*"
+    jqPathExpressions:
+      - '.metadata.labels["cluster.x-k8s.io/cluster-name"]'
+      - '.metadata.labels| select(. == {})'
+  - group: "addons.cluster.x-k8s.io"
+    kind: "*"
+    jqPathExpressions:
+      - '.metadata.labels["cluster.x-k8s.io/cluster-name"]'
+      - '.metadata.labels| select(. == {})'
+  - group: "bootstrap.cluster.x-k8s.io"
+    kind: "*"
+    jqPathExpressions:
+      - '.metadata.labels["cluster.x-k8s.io/cluster-name"]'
+      - '.metadata.labels| select(. == {})'
+  - group: "ipam.cluster.x-k8s.io"
+    kind: "*"
+    jqPathExpressions:
+      - '.metadata.labels["cluster.x-k8s.io/cluster-name"]'
+      - '.metadata.labels| select(. == {})'
+  - group: "clusterctl.cluster.x-k8s.io"
+    kind: "*"
+    jqPathExpressions:
+      - '.metadata.labels["cluster.x-k8s.io/cluster-name"]'
+      - '.metadata.labels| select(. == {})'
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+#    automated:
+#      prune: true
+#      selfHeal: true
+#      allowEmpty: true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        maxDuration: 3m0s
+        factor: 2
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+{{- end }}

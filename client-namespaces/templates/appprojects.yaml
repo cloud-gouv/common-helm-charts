@@ -1,0 +1,41 @@
+{{/*
+    this template aims at generating all the required AppProjects for the client's namespaces
+*/}}
+
+{{- range $clientNamespaceName, $_ := .Values.clientNamespaces }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: proj-{{ $clientNamespaceName }}
+  namespace: argocd
+spec:
+  # Do not filter source repo
+  sourceRepos:
+  - '*'
+  sourceNamespaces: []
+  destinations:
+  - namespace: {{ $clientNamespaceName }}
+    server: https://kubernetes.default.svc
+  # Deny all cluster-scoped resources from being created.
+  clusterResourceWhitelist: []
+  # Allow all namespaced-scoped resources to be created, except for the one listed below
+  namespaceResourceBlacklist:
+  - group: ''
+    kind: ResourceQuota
+  - group: ''
+    kind: LimitRange
+  - group: ''
+    kind: NetworkPolicy
+  - group: ''
+    kind: CiliumNetworkPolicy
+  - group: 'argoproj.io/v1alpha1'
+    kind: Application
+  roles:
+  - name: "{{ $clientNamespaceName }}-role"
+    # You will need to create this user and set its password.
+    groups:
+    - user-{{ $clientNamespaceName }}
+    policies:
+    - p, proj:proj-{{ $clientNamespaceName }}:{{ $clientNamespaceName }}-role, applications, *, proj-{{ $clientNamespaceName }}/*, allow
+{{- end }}

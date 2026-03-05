@@ -1,0 +1,34 @@
+# name: Publish Helm charts to GHCR (OCI)
+
+# on:
+#   push:
+#     branches: [ main ]
+
+# jobs:
+#   publish:
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: read
+#       packages: write
+#     steps:
+#       - uses: actions/checkout@v4
+
+#       - name: Install Helm
+#         uses: azure/setup-helm@v4
+
+#       - name: Login to GHCR
+#         run: echo "${{ secrets.GH_TOKEN }}" | helm registry login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+
+#       - name: Package charts
+#         run: |
+#           mkdir -p dist
+#           for chart in */Chart.yaml; do
+#             d="$(dirname "$chart")"
+#             helm package "$d" -d dist
+#           done
+
+#       - name: Push charts
+#         run: |
+#           for pkg in dist/*.tgz; do
+#             helm push "$pkg" oci://ghcr.io/${{ github.repository_owner }}/helm
+#           done

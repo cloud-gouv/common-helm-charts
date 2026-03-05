@@ -1,0 +1,15 @@
+---
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: minio-{{ .Values.tenant.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  jobName: {{ .Values.tenant.name }}-scrape
+  metricsPath: /minio/v2/metrics/cluster
+  scheme: HTTPS
+  tlsConfig:
+    insecureSkipVerify: true
+  staticConfigs:
+    - targets:
+        - minio.{{ .Release.Namespace }}.svc.cluster.local:443

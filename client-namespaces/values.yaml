@@ -1,0 +1,55 @@
+# Default values for client-namespaces.
+# This is a YAML-formatted file.
+# name of the ClusterRole that will be created and used
+# to grant read+write access to the client namespaces.
+# typically, it should be referenced in defaults.rbac[*].targetRoleName
+# and in clientNamespaces.*.rbac[*].targetRoleName.
+# if it is not defined, the default hard-coded value in the helm template
+# is "namespace-rw"
+clusterRoleRW: "namespace-rw"
+
+# these are the default values that will be used if not documented
+# in the 'clientNamespaces' object
+defaults:
+  rbac:
+    - bindingKind: "RoleBinding"
+      targetRoleKind: "ClusterRole"
+      targetRoleName: "namespace-rw"  # this name must match the 'clusterRoleRW' value
+      subjectKind: "ServiceAccount"
+      subjectName: "client-rw"
+  quotas:
+    requestsCpu: "1"
+    requestsMemory: "2Gi"
+    limitsMemory: "4Gi"
+    servicesLoadbalancers: "0"
+    servicesNodeports: "0"
+    countPods: "100"
+    countJobs: "50"
+    countDaemonsets: "0"
+    requestsStorage: "0Gi"
+    persistentVolumeClaims: "0"
+  limitRanges:
+    defaultRequestCpu: "10m"
+    defaultRequestMemory: "10Mi"
+    defaultLimitMemory: "10Mi"
+
+# list of namespaces that will be set (along with their properties).
+# if 'rbac' is not empty then it will override the defaults
+# if 'quotas' is not empty then it will be merged with the defaults
+#    in this case values in 'quotas' will have precedence
+clientNamespaces: {}
+# clientNamespaces:                     # list of 'client' namespaces for this cluster
+#   sample-1:                           # name of the namespace
+#     labels:                           # optional labels to apply to the namespace
+#       mysuperlabel: testlabel
+#     rbac: []                          # simply apply the defaults
+#     quotas: {}                        # simply apply the defaults
+#     limitRanges: {}                   # simply apply the defaults
+#   sample-2:
+#     labels:
+#       mysuperlabel: testlabel
+#     rbac: []                          # simply apply the defaults
+#     quotas:
+#       requestsCpu: "10"               # override the default value
+#       requestsMemory: "20Gi"          # override the default value
+#     limitRanges: {}                   # simply apply the defaults

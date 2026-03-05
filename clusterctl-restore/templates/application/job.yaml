@@ -1,0 +1,73 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: restoration-job
+  namespace: {{ .Values.namespace }}
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 0
+  template:
+    spec:
+      serviceAccountName: clusterctl-restore
+      restartPolicy: Never
+      securityContext:
+      {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: restoration
+          securityContext:
+          {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.registry}}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          command: ["/bin/bash", "-euo", "pipefail", "-c",]
+          args:
+            - |
+              echo "Script execution started at $(date)"
+              /etc/scripts/restore.sh
+              echo "Script execution completed at $(date)"
+          envFrom:
+            - secretRef:
+                name: s3-outscale-clusterctl-restore
+          env:
+            - name: KUBECONFIG
+              value: "/app/kubeconfig"
+            - name: RESTORE_TIMESTAMP
+              value: "{{ .Values.restore.timestamp }}"
+            {{- with .Values.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            - name: script-volume
+              mountPath: /etc/scripts
+            - name: k8s-api-token
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
+            - mountPath: /app
+              name: tmpfs
+            - mountPath: /backup
+              name: tmpfs-backup
+      volumes:
+        - name: tmpfs
+          emptyDir: {}
+        - name: tmpfs-backup
+          emptyDir:
+            medium: "Memory"
+            sizeLimit: {{ .Values.storageSize }}
+        - name: script-volume
+          configMap:
+            name: clustertcl-restore-script-config
+            defaultMode: 0555
+        - name: k8s-api-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  expirationSeconds: 3600
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                  - key: ca.crt
+                    path: ca.crt
+              - downwardAPI:
+                  items:
+                  - path: namespace
+                    fieldRef:
+                      fieldPath: metadata.namespace

@@ -1,0 +1,54 @@
+# name: Publish Helm charts to GHCR (OCI) - dev tags
+
+# on:
+#   push:
+#     branches: [ dev ]
+
+# jobs:
+#   publish-dev:
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: read
+#       packages: write
+
+#     steps:
+#       - uses: actions/checkout@v4
+
+#       - name: Install Helm
+#         uses: azure/setup-helm@v4
+
+#       - name: Install yq
+#         run: |
+#           sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+#           sudo chmod +x /usr/local/bin/yq
+
+#       - name: Login to GHCR
+#         run: echo "${{ secrets.GH_TOKEN }}" | helm registry login ghcr.io -u "${{ github.repository_owner }}" --password-stdin
+
+#       - name: Package + push dev versions
+#         env:
+#           OWNER: ${{ github.repository_owner }}
+#           SHA: ${{ github.sha }}
+#         run: |
+#           set -euo pipefail
+#           repo="oci://ghcr.io/${OWNER}/common-helm-charts"
+#           short_sha="${SHA:0:7}"
+
+#           mkdir -p dist
+#           for chart in */Chart.yaml; do
+#             d="$(dirname "$chart")"
+#             helm package "$d" -d dist
+#           done
+
+#           for pkg in dist/*.tgz; do
+#             name="$(helm show chart "$pkg" | awk -F': ' '$1=="name"{print $2}')"
+#             ver="$(helm show chart "$pkg"  | awk -F': ' '$1=="version"{print $2}')"
+
+#             tmpdir="$(mktemp -d)"
+#             tar -xzf "$pkg" -C "$tmpdir"
+#             yq -i ".version = \"${ver}-dev-${short_sha}\"" "$tmpdir/$name/Chart.yaml"
+#             helm package "$tmpdir/$name" -d "$tmpdir"
+
+#             helm push "$tmpdir/${name}-${ver}-dev-${short_sha}.tgz" "$repo"
+#             rm -rf "$tmpdir"
+#           done

@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "matrix-receiver.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "matrix-receiver.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    http:
+      port: 3000
+      metrics-enabled: true
+    matrix:
+      homeserver-url: '{{ .Values.receiver.matrix.homeserverUrl }}'
+      user-id: '{{ .Values.receiver.matrix.userId }}'
+      access-token: {{ .Values.receiver.matrix.accessToken }}
+      {{- if hasKey .Values.receiver.matrix "proxy" }}
+      proxy: {{ .Values.receiver.matrix.proxy | quote }}
+      {{- end }}
+      room-mapping:
+        {{- toYaml .Values.receiver.matrix.roomMapping | nindent 8}}
+    templating:
+      computed-values:
+      {{- toYaml .Values.receiver.computedValues | nindent 8 }}
+      # template for alerts in status 'firing'
+      firing-template: |
+      {{- toString .Values.receiver.firingTemplate | nindent 8 }}
+      # template for alerts in status 'resolved', if not specified will use the firing-template
+      resolved-template: |
+      {{- toString .Values.receiver.resolvedTemplate | nindent 8 }}
