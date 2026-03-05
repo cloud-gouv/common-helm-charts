@@ -3,155 +3,188 @@ entries:
   argocd-apps:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2026-02-19T12:55:18.555644802+01:00"
+    created: "2026-03-05T14:20:34.089089956+01:00"
     description: A Helm chart for managing additional Argo CD Applications
-    digest: 1b6a5aaaa3c46f2313f9179e5e992ca0a1887aa89ca2880fb51b07e259e9ea8f
+    digest: 5170faccb0c8e39531c8fcb45ae5b8d2a8cec4034ac1072d011dfe4e9a6ae374
     name: argocd-apps
     type: application
     urls:
-    - https://cloud-gouv.github.io/common-helm-charts/argocd-apps-0.1.0.tgz
+    - https://example.github.io/common-helm-charts/argocd-apps-0.1.0.tgz
     version: 0.1.0
   cert-manager-issuers:
   - apiVersion: v2
-    created: "2026-02-19T12:55:18.555812357+01:00"
+    created: "2026-03-05T14:20:34.089245209+01:00"
     description: A Helm chart for Kubernetes
-    digest: acdfd003b41cbf02ac84bfac41d332ee63dcc79dadab36b4d3219c26b8ef119c
+    digest: ffd1e79da7f3f42484b0efd425297806fb9a3997a633a7b5d3851f27779a4620
     name: cert-manager-issuers
     type: application
     urls:
-    - https://cloud-gouv.github.io/common-helm-charts/cert-manager-issuers-0.1.0.tgz
+    - https://example.github.io/common-helm-charts/cert-manager-issuers-0.1.0.tgz
     version: 0.1.0
   client-namespaces:
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-02-19T12:55:18.556071425+01:00"
+    created: "2026-03-05T14:20:34.089485973+01:00"
     description: A Helm chart for managing namespaces dedicated to clients
-    digest: 778ebf719a8cb228ef8827c0b75b29e5fe5c1c54a64ba38da9d2c7d808efd524
+    digest: c2d5a0b7804d8681e203aef469ce355caf2c408e3c89ce9dc8a074f61e57783e
     name: client-namespaces
     type: application
     urls:
-    - https://cloud-gouv.github.io/common-helm-charts/client-namespaces-0.1.0.tgz
+    - https://example.github.io/common-helm-charts/client-namespaces-0.1.0.tgz
     version: 0.1.0
   clusterctl-backup:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2026-02-19T12:55:18.556386598+01:00"
+    created: "2026-03-05T14:20:34.089752245+01:00"
     description: A Helm chart for managing  clusterapi backup
-    digest: 7c216349324301d6deab0fb30dee68a8e795c92ced1d17f4e85660d4f8dece9f
+    digest: bbca3ce859835be58038cb7221a4b235b2fe24908b5895d6759a88aa959376ed
     name: clusterctl-backup
     type: application
     urls:
-    - https://cloud-gouv.github.io/common-helm-charts/clusterctl-backup-0.1.3.tgz
+    - https://example.github.io/common-helm-charts/clusterctl-backup-0.1.3.tgz
     version: 0.1.3
   clusterctl-restore:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2026-02-19T12:55:18.556630997+01:00"
+    created: "2026-03-05T14:20:34.090027414+01:00"
     description: A Helm chart for managing  clusterapi restore
-    digest: b25abad382d5c25e696354b0000eff0894e23f533b733ad7a0d41cb2a74ac0ea
+    digest: 655da0825652c914283e313c8c675f96f18502d96943e20156b9649c70bc504f
     name: clusterctl-restore
     type: application
     urls:
-    - https://cloud-gouv.github.io/common-helm-charts/clusterctl-restore-0.1.4.tgz
+    - https://example.github.io/common-helm-charts/clusterctl-restore-0.1.4.tgz
     version: 0.1.4
+  cyberwatch-chart:
+  - apiVersion: v2
+    appVersion: 1.16.0
+    created: "2026-03-05T14:20:34.091374365+01:00"
+    description: A Helm chart to deploy Cyberwatch
+    digest: 4b50148d3d797861ae8aeb7c8ff720be55adc0811a07045328ea65f26323d233
+    name: cyberwatch-chart
+    type: application
+    urls:
+    - https://example.github.io/common-helm-charts/cyberwatch-chart-0.6.3.tgz
+    version: 0.6.3
+  cyberwatch-extra:
+  - apiVersion: v2
+    appVersion: 1.16.0
+    created: "2026-03-05T14:20:34.091465386+01:00"
+    description: A Helm chart to deploy Cyberwatch extra
+    digest: c591210116a7c21eff31c4f2bfe4491be62bcea9d0df21d804c9f81fa3dc641c
+    name: cyberwatch-extra
+    type: application
+    urls:
+    - https://example.github.io/common-helm-charts/cyberwatch-extra-0.6.3.tgz
+    version: 0.6.3
+  cyberwatch-overlays:
+  - apiVersion: v2
+    appVersion: 1.16.0
+    created: "2026-03-05T14:20:34.091564533+01:00"
+    description: A Helm chart to deploy Cyberwatch overlays
+    digest: bb4fee8ce590ad68ccbadeedd7d899fa8c1975f396fbe921c1af8126ed5a2a53
+    name: cyberwatch-overlays
+    type: application
+    urls:
+    - https://example.github.io/common-helm-charts/cyberwatch-overlays-0.6.3.tgz
+    version: 0.6.3
   external-secrets:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2026-02-19T12:55:18.556772804+01:00"
+    created: "2026-03-05T14:20:34.091701502+01:00"
     description: A Helm chart for Kubernetes
-    digest: bd6489c4d32eddef736ee0379a8a5110130ac3dad4b214edf481106e116bc833
+    digest: 7b1ae6ae1a32a08f7341e502bbe57f46a1191b2ac0b76eabd8930365a977420e
     name: external-secrets
     type: application
     urls:
-    - https://cloud-gouv.github.io/common-helm-charts/external-secrets-0.1.0.tgz
+    - https://example.github.io/common-helm-charts/external-secrets-0.1.0.tgz
     version: 0.1.0
   grafana-dashboards:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2026-02-19T12:55:18.561293709+01:00"
+    created: "2026-03-05T14:20:34.09561877+01:00"
     description: A Helm chart for Kubernetes
-    digest: 1e119ef53e755f5a48e842f38970d240388b8b3401134b14c740222257ff8db3
+    digest: 878304e32c3012e1b604142da1e3a0cfd67b1ae4d016249cf6a16d3dff387e25
     name: grafana-dashboards
     type: application
     urls:
-    - https://cloud-gouv.github.io/common-helm-charts/grafana-dashboards-0.1.0.tgz
+    - https://example.github.io/common-helm-charts/grafana-dashboards-0.1.0.tgz
     version: 0.1.0
   ingress-auth:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2026-02-19T12:55:18.561451015+01:00"
+    created: "2026-03-05T14:20:34.095768853+01:00"
     description: A Helm chart for Kubernetes
-    digest: a0a67b1c542762a2f4fb1302940fd697361af4a6dd60f2e3668109d82faf7cce
+    digest: 1859a0dc4e310f9ff6f59765e2144cf11eda3ebe6cc4db8bcf1d44d49a9cd9f3
     name: ingress-auth
     type: application
     urls:
-    - https://cloud-gouv.github.io/common-helm-charts/ingress-auth-0.1.0.tgz
+    - https://example.github.io/common-helm-charts/ingress-auth-0.1.0.tgz
     version: 0.1.0
   matrix-receiver:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2026-02-19T12:55:18.561842652+01:00"
+    created: "2026-03-05T14:20:34.096099697+01:00"
     description: A Helm chart for Kubernetes
-    digest: 3e8fb0a4b1d73712af20fa1aa3613628f88d6ce87707f88045e268220f4fdf8d
+    digest: 37b798d2b3a6e9b70c9f798612d69816451c47f3cb5b51cdb923b35621cfa8d6
     name: matrix-receiver
     type: application
     urls:
-    - https://cloud-gouv.github.io/common-helm-charts/matrix-receiver-0.1.0.tgz
+    - https://example.github.io/common-helm-charts/matrix-receiver-0.1.0.tgz
     version: 0.1.0
   minio-backup:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2026-02-19T12:55:18.562104024+01:00"
+    created: "2026-03-05T14:20:34.096330342+01:00"
     description: A Helm chart for managing Minio backup
-    digest: b26cd1c6be21d9274f8c18d01455768cae6c73e8674d82c0ddc575f8cc2a382c
+    digest: 6783ec4af3a668f0ebf378a72091d03d15676a36f45a22b30df9758d8a6d63af
     name: minio-backup
     type: application
     urls:
-    - https://cloud-gouv.github.io/common-helm-charts/minio-backup-0.1.3.tgz
+    - https://example.github.io/common-helm-charts/minio-backup-0.1.3.tgz
     version: 0.1.3
   minio-tenant:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2026-02-19T12:55:18.56287269+01:00"
+    created: "2026-03-05T14:20:34.097016927+01:00"
     description: A Helm chart for Kubernetes
-    digest: 5cd66abcc2ab9091827c4baf1cdb4f1dfa60e8ac061631ee9442a6239fef6a00
+    digest: d4bb4ddc48d52f389efbd0c290e7ec453cdc17f0a410beb8e29dff7668e73e5c
     name: minio-tenant
     type: application
     urls:
-    - https://cloud-gouv.github.io/common-helm-charts/minio-tenant-0.1.0.tgz
+    - https://example.github.io/common-helm-charts/minio-tenant-0.1.0.tgz
     version: 0.1.0
   raw:
   - apiVersion: v2
     appVersion: 0.2.3
-    created: "2026-02-19T12:55:18.563061736+01:00"
+    created: "2026-03-05T14:20:34.097206875+01:00"
     description: A place for all the Kubernetes resources which don't already have
       a home.
-    digest: 606aa709502c6056de5503761c75082092a468c6189d13b6c65c4132b971912f
+    digest: cb5ff6356869b4bc60ee6db38f6daf3e0cbd1a2377646bec31ed62fe9507aa34
     home: https://github.com/helm/charts/blob/master/incubator/raw
     name: raw
     urls:
-    - https://cloud-gouv.github.io/common-helm-charts/raw-0.3.0.tgz
+    - https://example.github.io/common-helm-charts/raw-0.3.0.tgz
     version: 0.3.0
   rclone:
   - apiVersion: v2
     appVersion: 1.72.0
-    created: "2026-02-19T12:55:18.563340801+01:00"
+    created: "2026-03-05T14:20:34.097462036+01:00"
     description: A Helm chart for Kubernetes
-    digest: 563fa513b8ee04eb81b2b6a39e90856317d3b35673b78d31a5f8be5202ccd8e2
+    digest: f11db3368546a851ddf30b5a69527c5248298b021b4cc74b982c56ad69931358
     name: rclone
     type: application
     urls:
-    - https://cloud-gouv.github.io/common-helm-charts/rclone-1.72.0.tgz
+    - https://example.github.io/common-helm-charts/rclone-1.72.0.tgz
     version: 1.72.0
   secrets:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2026-02-19T12:55:18.56348419+01:00"
+    created: "2026-03-05T14:20:34.097594867+01:00"
     description: A Helm chart for Kubernetes
-    digest: e1e8b75d44e4423890f51d88a95f89a0695299a46d7b2be9ddd16bf9f4baa820
+    digest: b1605f284dfd6db356d0b4ab0ae032f2639ab3c1579023dd7776802ae0ba848a
     name: secrets
     type: application
     urls:
-    - https://cloud-gouv.github.io/common-helm-charts/secrets-0.1.0.tgz
+    - https://example.github.io/common-helm-charts/secrets-0.1.0.tgz
     version: 0.1.0
-generated: "2026-02-19T12:55:18.555243257+01:00"
+generated: "2026-03-05T14:20:34.088705311+01:00"
