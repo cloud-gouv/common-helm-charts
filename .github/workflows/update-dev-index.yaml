@@ -1,4 +1,4 @@
-name: Publish Helm HTTP repo to GitHub Pages
+name: Build Helm index (non-main branches)
 
 on:
   push:
@@ -8,15 +8,13 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: build-index-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-index:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -26,23 +24,27 @@ jobs:
         with:
           version: v3.16.1
 
-      - name: Configure GitHub Pages
-        id: pages
-        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
-
       - name: Build Helm repo (index.yaml + tgz)
         run: |
           set -euo pipefail
           outdir="site"
-          repo_url="${{ steps.pages.outputs.base_url }}"
+          repo_url="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
           rm -rf "$outdir"
           mkdir -p "$outdir"
 
+          chart_count=0
           for chart in */Chart.yaml; do
-            d="$(dirname "$chart")"
+            [ -f "$chart" ] || continue
+            chart_count=$((chart_count + 1))
+            d="${chart%/Chart.yaml}"
             echo "Packaging $d"
             helm package "$d" --destination "$outdir"
           done
+
+          if [ "$chart_count" -eq 0 ]; then
+            echo "No Chart.yaml found at repository root"
+            exit 1
+          fi
 
           helm repo index "$outdir" --url "$repo_url"
 
@@ -54,3 +56,11 @@ jobs:
           <p>Example: <code>helm repo add common $repo_url</code></p>
           <p>Index file: <a href="./index.yaml">index.yaml</a></p>
           EOF
+
+      - name: Upload generated index artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: helm-repo-site-${{ github.run_id }}
+          path: site
+          if-no-files-found: error
+          retention-days: 7
