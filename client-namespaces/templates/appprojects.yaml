@@ -38,4 +38,5 @@ spec:
     - user-{{ $clientNamespaceName }}
     policies:
     - p, proj:proj-{{ $clientNamespaceName }}:{{ $clientNamespaceName }}-role, applications, *, proj-{{ $clientNamespaceName }}/*, allow
+    - p, proj:proj-{{ $clientNamespaceName }}:{{ $clientNamespaceName }}-role, logs, get, proj-{{ $clientNamespaceName }}/*, allow
 {{- end }}
