@@ -34,10 +34,10 @@ spec:
     targetRevision: {{ template "argocd-apps.defaultSourceTargetRevision" $ }}
     path: {{ template "argocd-apps.defaultSourcePath" $ }}
   syncPolicy:
-#    automated:
-#      prune: true
-#      selfHeal: true
-#      allowEmpty: true
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: true
     retry:
       limit: 5
       backoff:
