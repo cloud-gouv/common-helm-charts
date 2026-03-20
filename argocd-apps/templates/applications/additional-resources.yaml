@@ -42,7 +42,7 @@ spec:
       env:
         # here is the cluster name to create
         - name: ENV_NAME
-          value: {{ template "argocd-apps.defaultEnvironment" (dict "data" $data "default" $appName ) }}
+          value: {{ default $appName $appData.helmfile_env }}
         - name: HELMFILE_FILE
           value: "helmfile.d/cluster-step-04-additional-resources"
         - name: HELMFILE_MULTI_NAMESPACE
