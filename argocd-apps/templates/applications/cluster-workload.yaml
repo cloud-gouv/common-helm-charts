@@ -42,7 +42,7 @@ spec:
       env:
         # here is the cluster name to configure
         - name: ENV_NAME
-          value: {{ $appName | quote }}
+          value: {{ default $appName $appData.helmfile_env }}
         - name: HELMFILE_FILE
           value: "helmfile.d/cluster-step-03-configure-workload"
         - name: HELMFILE_MULTI_NAMESPACE

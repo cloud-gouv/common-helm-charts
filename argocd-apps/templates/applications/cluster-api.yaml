@@ -42,7 +42,7 @@ spec:
       env:
         # here is the cluster name to create
         - name: ENV_NAME
-          value: {{ $appName | quote }}
+          value: {{ default $appName $appData.helmfile_env }}
         - name: HELMFILE_FILE
           value: "helmfile.d/cluster-step-01-create"
         - name: HELMFILE_MULTI_NAMESPACE
