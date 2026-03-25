@@ -2,7 +2,7 @@
     this template aims at generating all the required AppProjects for the client's namespaces
 */}}
 
-{{- range $clientNamespaceName, $_ := .Values.clientNamespaces }}
+{{- range $clientNamespaceName, $clientNamespaceValue := .Values.clientNamespaces }}
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
@@ -39,4 +39,7 @@ spec:
     policies:
     - p, proj:proj-{{ $clientNamespaceName }}:{{ $clientNamespaceName }}-role, applications, *, proj-{{ $clientNamespaceName }}/*, allow
     - p, proj:proj-{{ $clientNamespaceName }}:{{ $clientNamespaceName }}-role, logs, get, proj-{{ $clientNamespaceName }}/*, allow
+    {{- if ($clientNamespaceValue.webTerminalEnabled | default false) }}
+    - p, proj:proj-{{ $clientNamespaceName }}:{{ $clientNamespaceName }}-role, exec, create, proj-{{ $clientNamespaceName }}/*, allow
+    {{- end }}
 {{- end }}
