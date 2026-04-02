@@ -13,7 +13,7 @@
 # namespace: {{ $.Values.namespace }}
 # source.repoURL: {{ $repoURL }}
 # source.targetRevision: {{ template "argocd-apps.defaultSourceTargetRevision" $ }}
-# source.path: {{ template "argocd-apps.defaultSourcePath" $ }}
+# source.path: {{ default (include "argocd-apps.defaultSourcePath" $) $appData.path }}
 # destination.name: {{ template "argocd-apps.defaultDestinationName" (dict "data" $data "default" $appData.environment ) }}
 #
 apiVersion: argoproj.io/v1alpha1
@@ -36,13 +36,13 @@ spec:
   source:
     repoURL: {{ $repoURL }}
     targetRevision: {{ template "argocd-apps.defaultSourceTargetRevision" $ }}
-    path: {{ template "argocd-apps.defaultSourcePath" $ }}
+    path: {{ default (include "argocd-apps.defaultSourcePath" $) $appData.path }}
     plugin:
       name: helmfile-v1.0
       env:
         # here is the cluster name to configure
         - name: ENV_NAME
-          value: {{ $appName | quote }}
+          value: {{ default $appName $appData.helmfile_env }}
         - name: HELMFILE_FILE
           value: "helmfile.d/mgmt-step-02-cluster-api-operator-provider"
         - name: HELMFILE_MULTI_NAMESPACE
