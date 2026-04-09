@@ -44,7 +44,7 @@ spec:
         - name: ENV_NAME
           value: {{ default $appName $appData.helmfile_env }}
         - name: HELMFILE_FILE
-          value: "helmfile.d/cluster-step-03-configure-workload/11-argocd-apps.yaml.gotmpl"
+          value: "helmfile.d/cluster-step-03-configure-workload/argocd-apps.yaml"
   syncPolicy:
     syncOptions:
       - CreateNamespace=true
