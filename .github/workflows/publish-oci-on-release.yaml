@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to test (e.g. 0.0.6)'
+        description: 'Version to test (e.g. x.x.x)'
         required: true
         default: '0.0.0-test'
 
@@ -17,7 +17,7 @@ jobs:
       contents: read
       packages: write
     env:
-      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.version }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
