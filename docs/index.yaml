@@ -3,9 +3,9 @@ entries:
   argocd-apps:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2026-04-13T14:23:09.27489839Z"
+    created: "2026-04-13T14:24:07.629118629Z"
     description: A Helm chart for managing additional Argo CD Applications
-    digest: 4d1170308b46edbb2baf757f1dc3b4244b52ec38eadcffc9752267fb39cd514b
+    digest: 3ff2021ea7fb71f5f2432708eda27944ac04ee27cd8ab9b3da71e8117419afd7
     name: argocd-apps
     type: application
     urls:
@@ -13,9 +13,9 @@ entries:
     version: 0.1.0
   cert-manager-issuers:
   - apiVersion: v2
-    created: "2026-04-13T14:23:09.275086631Z"
+    created: "2026-04-13T14:24:07.629479892Z"
     description: A Helm chart for Kubernetes
-    digest: 0d4a959628619b8241762753fdb02815de9cdddc7f4631bbb03a4354663ea9b8
+    digest: 2442a91ae05e19a95a1cb72f89795fe91c10e31cb4b66ffb23e24df570563c07
     name: cert-manager-issuers
     type: application
     urls:
@@ -24,9 +24,9 @@ entries:
   client-namespaces:
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-04-13T14:23:09.275389033Z"
+    created: "2026-04-13T14:24:07.630181739Z"
     description: A Helm chart for managing namespaces dedicated to clients
-    digest: 302325ac93f5bd7928ec8fa12fb4ecda54e1a1ded8c1f5d91857a2f4f1d7a9ee
+    digest: 8240ec62373d008ecfc5c0a6c22fbc2ffdabc1c4238dd7d72aedf2603b11ea5a
     name: client-namespaces
     type: application
     urls:
@@ -35,9 +35,9 @@ entries:
   clusterctl-backup:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2026-04-13T14:23:09.275706134Z"
+    created: "2026-04-13T14:24:07.630766098Z"
     description: A Helm chart for managing  clusterapi backup
-    digest: 1375e083c67720761f01f8023e132aff97a4b828f91a6a61474ac74cf84ced3f
+    digest: 6ef7316be5f141e053609bb07258d006bf2c4ff0631caa6b30fb4f8dd54032c2
     name: clusterctl-backup
     type: application
     urls:
@@ -46,9 +46,9 @@ entries:
   clusterctl-restore:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2026-04-13T14:23:09.27605336Z"
+    created: "2026-04-13T14:24:07.631329457Z"
     description: A Helm chart for managing  clusterapi restore
-    digest: e561a6cfeb379419ab7306b846d918a60ce56f137080badca7d51dc520d80c63
+    digest: 42010f1a34b6bf91a365e7ff158953893303cab78fc51b4a66dc903e603d0e02
     name: clusterctl-restore
     type: application
     urls:
@@ -57,9 +57,9 @@ entries:
   external-secrets:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2026-04-13T14:23:09.27621472Z"
+    created: "2026-04-13T14:24:07.631629266Z"
     description: A Helm chart for Kubernetes
-    digest: 2b5566accb361ab36c8f77c5303ee32ae2de6a4621af602db728668fb6ef7b91
+    digest: ffcf2a2868686f52ec75fbfd8efd82fa7a85759a5d0eb6a06b4bdd9414d4f007
     name: external-secrets
     type: application
     urls:
@@ -68,9 +68,9 @@ entries:
   grafana-dashboards:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2026-04-13T14:23:09.281616504Z"
+    created: "2026-04-13T14:24:07.638009533Z"
     description: A Helm chart for Kubernetes
-    digest: 76b6e878c32551eeac2f556d91566ec38f702c5fc3094c2ca5531ec677792a42
+    digest: 8000c1cab3fb36cc9598d61f7b438c168299690a33feca0538b95ec3b9db25af
     name: grafana-dashboards
     type: application
     urls:
@@ -79,9 +79,9 @@ entries:
   ingress-auth:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2026-04-13T14:23:09.281939305Z"
+    created: "2026-04-13T14:24:07.638258015Z"
     description: A Helm chart for Kubernetes
-    digest: 65bf00d0f9ea21c231877196b272397ae97e777084c22024a585e7139974a107
+    digest: 8d982263cccc3f247a22206756685b2b02e309f8070a596afa95eabc186095c3
     name: ingress-auth
     type: application
     urls:
@@ -90,9 +90,9 @@ entries:
   matrix-receiver:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2026-04-13T14:23:09.282674112Z"
+    created: "2026-04-13T14:24:07.638676535Z"
     description: A Helm chart for Kubernetes
-    digest: efd945d3efc4fe4df4cf74451ea09a59e2546362ea9f6615230b1041943e9e6b
+    digest: c29863f268532b8b2ea2283df644921c88ea0d0e410f444a372c78351eea85f8
     name: matrix-receiver
     type: application
     urls:
@@ -101,9 +101,9 @@ entries:
   minio-backup:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2026-04-13T14:23:09.283224236Z"
+    created: "2026-04-13T14:24:07.638970934Z"
     description: A Helm chart for managing Minio backup
-    digest: 1845cf297570b96fc11ece0609a4106cd6782bc5543718500373943ba5afc26c
+    digest: d0c5c9fc0fb8a4944c558535406f1893129a2f75d3e2522db51bd76110a8d955
     name: minio-backup
     type: application
     urls:
@@ -112,9 +112,9 @@ entries:
   minio-tenant:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2026-04-13T14:23:09.284880819Z"
+    created: "2026-04-13T14:24:07.640852927Z"
     description: A Helm chart for Kubernetes
-    digest: bc1c09b98093e8bef201318c0b67ef12ec8db4e8b14a4a750e1d976b2ecef9da
+    digest: 1224243570efd931c4239408eb1bc9388223c4fb808ad407072bae87a9439d37
     name: minio-tenant
     type: application
     urls:
@@ -123,10 +123,10 @@ entries:
   raw:
   - apiVersion: v2
     appVersion: 0.2.3
-    created: "2026-04-13T14:23:09.285285873Z"
+    created: "2026-04-13T14:24:07.641082094Z"
     description: A place for all the Kubernetes resources which don't already have
       a home.
-    digest: 412defedcc5d34e7a45543f99ce3bfc28b7de9b337bc11304d9adc264a56b545
+    digest: 02596afb8ce004a596806ac2af480a9bfbf45fca66fd302da3d67abe4762adda
     home: https://github.com/helm/charts/blob/master/incubator/raw
     name: raw
     urls:
@@ -135,9 +135,9 @@ entries:
   rclone:
   - apiVersion: v2
     appVersion: 1.72.0
-    created: "2026-04-13T14:23:09.285838562Z"
+    created: "2026-04-13T14:24:07.64150951Z"
     description: A Helm chart for Kubernetes
-    digest: b23428d92dc613118e2e1047c8c40f6f8c3b3d7162e1e119db9697a1343a5c57
+    digest: eccdc59c383c369c8536df00316bf21c1a23a5a2521495905ac507385a096ab0
     name: rclone
     type: application
     urls:
@@ -146,12 +146,12 @@ entries:
   secrets:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2026-04-13T14:23:09.286099768Z"
+    created: "2026-04-13T14:24:07.641707579Z"
     description: A Helm chart for Kubernetes
-    digest: 2556d2d8ff09850b2b4b7d83b5284c98d4151c6c794b59f1c46cae92934cf69a
+    digest: d8eeb28b3590c2d85bfc6f51b4d0b5035c9a559806c8fb2ff2625e635fd272bb
     name: secrets
     type: application
     urls:
     - https://cloud-gouv.github.io/common-helm-charts/secrets-0.1.0.tgz
     version: 0.1.0
-generated: "2026-04-13T14:23:09.274427704Z"
+generated: "2026-04-13T14:24:07.628259909Z"
