@@ -1,0 +1,72 @@
+name: Publish Helm charts to GHCR (OCI)
+
+on:
+  release:
+    types: [ published ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to test (e.g. x.x.x)'
+        required: true
+        default: '0.0.0-test'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.version }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install Helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+
+      - name: Compute chart version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          chart_version="${RELEASE_TAG#v}"
+
+          if [[ -z "$chart_version" ]]; then
+            echo "Release tag is empty" >&2
+            exit 1
+          fi
+
+          if [[ ! "$chart_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Release tag '$RELEASE_TAG' does not produce a valid Helm chart version ('$chart_version')." >&2
+            echo "Use a SemVer tag such as 1.2.3 or v1.2.3." >&2
+            exit 1
+          fi
+
+          echo "CHART_VERSION=$chart_version" >> "$GITHUB_ENV"
+          echo "OCI_NAMESPACE=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - name: Login to GHCR
+        run: echo "${{ github.token }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Package charts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p dist
+          for chart in */Chart.yaml; do
+            d="$(dirname "$chart")"
+            helm package "$d" \
+              --version "$CHART_VERSION" \
+              --app-version "$RELEASE_TAG" \
+              -d dist
+          done
+
+      - name: Push charts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for pkg in dist/*.tgz; do
+            helm push "$pkg" "oci://ghcr.io/$OCI_NAMESPACE/helm"
+          done
