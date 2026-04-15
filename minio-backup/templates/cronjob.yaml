@@ -35,6 +35,9 @@ spec:
                 mc mirror --overwrite {{ .Values.minio.tenantName }}/${bucket} /data/${bucket}
               done
 
+              # Make sure there are no stale locks. This should never fail.
+              restic unlock || true
+
               # 2nd make a remote backup
               ## init repo if necessary
               EXIT_CODE=0
