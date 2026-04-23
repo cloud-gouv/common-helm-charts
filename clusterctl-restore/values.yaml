@@ -15,6 +15,9 @@ env: []
 
 storageSize: 1Gi
 
+useExternalSecret: false
+secretName: s3-outscale-clusterctl-restore
+
 #configs:
 #  credentialTemplates:
 #    s3-outscale-clusterctl-restore:

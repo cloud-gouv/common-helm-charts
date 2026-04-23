@@ -31,7 +31,7 @@ spec:
               echo "Script execution completed at $(date)"
             envFrom:
               - secretRef:
-                  name: s3-outscale-clusterctl-backup
+                  name: {{ .Values.secretName }}
             env:
               - name: KUBECONFIG
                 value: "/app/kubeconfig"
