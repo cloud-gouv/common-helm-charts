@@ -25,7 +25,7 @@ spec:
               echo "Script execution completed at $(date)"
           envFrom:
             - secretRef:
-                name: s3-outscale-clusterctl-restore
+                name: {{ .Values.secretName }}
           env:
             - name: KUBECONFIG
               value: "/app/kubeconfig"
