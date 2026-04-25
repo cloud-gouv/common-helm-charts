@@ -1,0 +1,79 @@
+annotations: {}
+
+# ── Secret identity ─────────────────────────────────────────────────────
+secretName: ""          # name of the generated K8s Secret
+namespace: ""           # target namespace (empty = job namespace)
+vaultSubPath: ""    # relative path: VAULT_PATH_BASE/<vaultSubPath>
+
+# ── Cluster role ────────────────────────────────────────────────────────
+# mgmt | wapp | observability
+# Bao AppRole provisioning runs only on mgmt clusters
+clusterRole: wapp
+# Only relevant when clusterRole == mgmt
+appRole:
+  defaultPolicies: "generic-k8s"
+  tenantName: ""
+  targetClusters: []
+  # - cluster-mgmt-1
+  # - cluster-wapp-1
+  # - cluster-wapp-2
+  # - cluster-obs-1
+  script: null #| 
+  #   export TENANT_NAME={{ macro.tenant_name(cluster_name) }}
+  #   export DEFAULT_POLICIES=
+
+  #   approle_provision() {
+  #     echo "AppRole provisioning for mgmt cluster..."
+  #     {%- for cluster_name in target_clusters %}
+  #     echo "[{{ cluster_name }}] ESO AppRole provisioning..."
+
+  #     ALL_POLICIES="${DEFAULT_POLICIES},generic-infra-${BAO_ENV}"
+  #     echo "Upserting AppRole: auth/approle/role/{{ cluster_name }}"
+
+  #     bao write "auth/approle/role/{{ cluster_name }}" \
+  #       token_policies="${ALL_POLICIES}" \
+  #       secret_id_ttl=0 \
+  #       token_ttl=1h \
+  #       token_max_ttl=4h \
+  #       token_num_uses=0
+
+  #     _ROLE_ID="$(bao read -field=role_id "auth/approle/role/{{ cluster_name }}/role-id")"
+  #     _SECRET_ID_METADATA="$(printf '{"tenant":"%s"}' "${TENANT_NAME}")"
+  #     _SECRET_ID="$(bao write -field=secret_id \
+  #       "auth/approle/role/{{ cluster_name }}/secret-id" \
+  #       metadata="${_SECRET_ID_METADATA}")"
+
+  #     echo "[{{ cluster_name }}] Storing AppRole credentials in KV..."
+  #     bao kv put -mount=secret "k8s/cluster/{{ cluster_name }}/app_role" \
+  #       role_id="${_ROLE_ID}" \
+  #       secret_id="${_SECRET_ID}"
+
+  #     echo "[{{ cluster_name }}] AppRole OK."
+  #     {%- endfor %}
+      
+# ── Shared infra (often merged from global values) ─────────────────────
+clusterName: ""
+environment: ""
+baoAddr: ""
+secretStoreName: ""
+forceRotatePassword: false
+jobNamespace: "secrets-provisioning"
+image: "ghcr.io/cloud-gouv/cluster-secret-provisioning-image:sha-4d44374"
+rbac:
+  create: true
+
+# ── PushSecret mappings (secretKey -> property in Bao) ─────────────────
+# Default: a single "password" field
+pushMappings:
+  # - secretKey: login
+  #   property: login
+  #   value: admin
+  - secretKey: password
+    property: password
+
+# ── Generation script (overridable per component) ───────────────────────
+# use the encryption you need
+generator:
+  override: false
+  command: |
+    argocd account bcrypt --password "$(openssl rand -base64 24 | tr -d '\n')"

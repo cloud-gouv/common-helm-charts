@@ -1,0 +1,47 @@
+{{- if .Values.secretName }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "sp-generator-{{ .Values.secretName }}"
+  namespace: {{ .Values.jobNamespace }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  generate.sh: |
+    generate_secret() {
+      if kubectl get secret "$SECRET_NAME" \
+          ${TARGET_NAMESPACE:+--namespace="$TARGET_NAMESPACE"} \
+          >/dev/null 2>&1; then
+        echo "K8s secret ${SECRET_NAME} already exists, updating..."
+        kubectl delete secret "$SECRET_NAME" \
+          ${TARGET_NAMESPACE:+--namespace="$TARGET_NAMESPACE"}
+      fi
+
+      {{- if .Values.generator.override }}
+      PLAIN_PASSWORD="$(openssl rand -base64 24 | tr -d '\n')"
+      printf '%s' "$({{ .Values.generator.command | trimSuffix "\n" }})" > /tmp/generated
+      {{- end }}
+
+      kubectl create secret generic "$SECRET_NAME" \
+        ${TARGET_NAMESPACE:+--namespace="$TARGET_NAMESPACE"} \
+        {{- $mappings := .Values.pushMappings }}
+        {{- range $i, $v := $mappings }}
+        {{- if $v.value }}
+        --from-literal={{ $v.property }}={{ $v.value | quote }}{{ if or $.Values.generator.override (lt (add1 $i) (len $mappings)) }} \{{ end }}
+        {{- else if $.Values.generator.override }}
+        --from-file={{ $v.property }}=/tmp/generated{{ if or $.Values.generator.override (lt (add1 $i) (len $mappings)) }} \{{ end }}
+        {{- else }}
+        --from-literal={{ $v.property }}="$(openssl rand -base64 24 | tr -d '\n')"{{ if lt (add1 $i) (len $mappings) }} \{{ end }}
+        {{- end }}
+        {{- end }}
+        {{- if .Values.generator.override }}
+        --from-literal=plain-password="$PLAIN_PASSWORD"
+        {{- end }}
+
+      {{- if .Values.generator.override }}
+      rm -f /tmp/generated
+      {{- end }}
+    }
+{{- end }}

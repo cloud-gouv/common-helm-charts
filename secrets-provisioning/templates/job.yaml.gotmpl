@@ -1,0 +1,171 @@
+{{- $vaultPath := printf "k8s/cluster/%s/%s" .Values.clusterName .Values.vaultSubPath }}
+{{- $saName    := include "sp.serviceAccountName" . }}
+{{- $externalSecretsNamespace := default "external-secrets" .Values.externalSecretsNamespace }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "sp-{{ if .Values.secretName }}{{ .Values.secretName }}{{ else }}approle{{ end }}"
+  namespace: {{ .Values.jobNamespace }}
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+    {{- if .Values.annotations }}
+      {{- toYaml .Values.annotations | nindent 4 }}
+    {{- end }}
+spec:
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      serviceAccountName: {{ $saName }}
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      {{- if .Values.secretName }}
+      volumes:
+        - name: generator
+          configMap:
+            name: "sp-generator-{{ .Values.secretName }}"
+            defaultMode: 0555
+      {{- end }}
+      containers:
+        - name: provision
+          image: {{ .Values.image }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
+          {{- if .Values.secretName }}
+          volumeMounts:
+            - name: generator
+              mountPath: /scripts
+          {{- end }}
+          env:
+          {{- if .Values.secretName }}
+            - name: SECRET_NAME
+              value: {{ .Values.secretName | quote }}
+          {{- end }}
+            - name: TARGET_NAMESPACE
+              value: {{ .Values.namespace | quote }}
+            - name: FULL_VAULT_PATH
+              value: {{ $vaultPath | quote }}
+            - name: SECRET_STORE_NAME
+              value: {{ .Values.secretStoreName | quote }}
+            - name: BAO_ADDR
+              value: {{ .Values.baoAddr | quote }}
+            - name: BAO_ENV
+              value: {{ .Values.environment | quote }}
+            - name: FORCE_ROTATE_PASSWORD
+              value: {{ .Values.forceRotatePassword | quote }}
+            - name: EXTERNAL_SECRETS_NAMESPACE
+              value: {{ $externalSecretsNamespace | quote }}
+          command:
+            - bash
+            - -euo
+            - pipefail
+            - -c
+            - |
+              {{ if .Values.secretName }}
+              . /scripts/generate.sh
+              {{ end }}
+
+              ##── Auth Bao ────────────────────────────────────────────────
+              SECRET_ID="$(kubectl -n "${EXTERNAL_SECRETS_NAMESPACE}" get secret openbao-approle \
+                -o jsonpath='{.data.secret-id}' | base64 -d)"
+              ROLE_ID="$(kubectl -n "${EXTERNAL_SECRETS_NAMESPACE}" get secret openbao-approle \
+                -o jsonpath='{.data.role-id}' | base64 -d)"
+              BAO_TOKEN="$(bao write -field=token auth/approle/login \
+                role_id="$ROLE_ID" secret_id="$SECRET_ID")"
+              export BAO_TOKEN BAO_ADDR
+
+              echo "Checking token capabilities on auth/approle/role/*..."
+              CAPS="$(bao token capabilities 'auth/approle/role/*')"
+              if echo "$CAPS" | grep -q "deny"; then
+                echo "ERROR: insufficient token capabilities on auth/approle/role/*" >&2
+                exit 1
+              fi
+              echo "Token capabilities OK."
+
+              ##── Already exists? ──────────────────────────────────────────
+              if [ "${FORCE_ROTATE_PASSWORD}" != "true" ]; then
+                if bao kv get -mount=secret "${FULL_VAULT_PATH}" >/dev/null 2>&1; then
+                  echo "Secret ${FULL_VAULT_PATH} already exists, nothing to do."
+                  exit 0
+                fi
+              fi
+
+              {{ if .Values.appRole.script }}
+              ##── AppRole provisioning ────────────────────────
+              {{ .Values.appRole.script | nindent 14 }}
+              {{ else }}
+              
+              ##── Generation ──────────────────────────────────────────────
+              echo "Generating secret ${SECRET_NAME}..."
+              generate_secret
+
+              ##── PushSecret ──────────────────────────────────────────────
+              kubectl apply -f - <<EOF
+              apiVersion: external-secrets.io/v1alpha1
+              kind: PushSecret
+              metadata:
+                name: ${SECRET_NAME}
+                ${TARGET_NAMESPACE:+namespace: ${TARGET_NAMESPACE}}
+              spec:
+                refreshInterval: 1h
+                secretStoreRefs:
+                  - name: ${SECRET_STORE_NAME}
+                    kind: ClusterSecretStore
+                selector:
+                  secret:
+                    name: ${SECRET_NAME}
+                data:
+              {{ range .Values.pushMappings }}
+                  - match:
+                      secretKey: {{ .secretKey }}
+                      remoteRef:
+                        remoteKey: {{ $vaultPath }}
+                        property: {{ .property }}
+              {{ end }}
+              {{- if .Values.generator.override }}
+                  - match:
+                      secretKey: plain-password
+                      remoteRef:
+                        remoteKey: {{ $vaultPath }}
+                        property: plain-password
+                {{ end }}
+              EOF
+
+              ##── Force reconcile ─────────────────────────────────────────
+              NOW="$(date -u +%Y%m%dT%H%M%SZ)"
+              kubectl annotate pushsecret "${SECRET_NAME}" \
+                ${TARGET_NAMESPACE:+--namespace="${TARGET_NAMESPACE}"} \
+                force-reconcile="$NOW" --overwrite
+
+              ##── Wait for Bao data sync ──────────────────────────────────
+              ATTEMPT=1
+              until bao kv get -mount=secret "${FULL_VAULT_PATH}" >/dev/null 2>&1; do
+                echo "Waiting (attempt ${ATTEMPT})..."
+                ATTEMPT=$((ATTEMPT + 1))
+                [ "$ATTEMPT" -gt 30 ] && { echo "ERROR: timeout" >&2; exit 1; }
+                sleep 10
+              done
+
+              ##── Delete PushSecret ───────────────────────────────────────
+              kubectl delete pushsecret "${SECRET_NAME}" \
+                ${TARGET_NAMESPACE:+--namespace="${TARGET_NAMESPACE}"} \
+                --ignore-not-found=true
+
+              echo "Done: ${FULL_VAULT_PATH}"
+
+              ##── Delete secret (linked to push secret) ───────────────────────────────────────
+              kubectl delete secret "${SECRET_NAME}" \
+                ${TARGET_NAMESPACE:+--namespace="${TARGET_NAMESPACE}"} \
+                --ignore-not-found=true
+
+              echo "Done: ${SECRET_NAME}"
+              {{ end }}
