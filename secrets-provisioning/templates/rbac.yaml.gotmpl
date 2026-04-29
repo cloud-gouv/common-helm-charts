@@ -1,0 +1,48 @@
+{{- if .Values.rbac.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: secret-reader
+  namespace: {{ .Values.jobNamespace }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    app.kubernetes.io/name: sp-jobsecret-read-openbao-approle
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: secret-read-openbao-approle
+  namespace: {{ .Values.externalSecretsNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+    {{- with .Values.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["openbao-approle"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: secret-read-openbao-approle
+  namespace: {{ .Values.externalSecretsNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+    {{- with .Values.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+subjects:
+  - kind: ServiceAccount
+    name: secret-reader 
+    namespace: {{ .Values.jobNamespace }}
+roleRef:
+  kind: Role
+  name: secret-read-openbao-approle
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}

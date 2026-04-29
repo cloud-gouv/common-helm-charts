@@ -1,0 +1,115 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "sp-generator-{{ .Values.releaseName }}"
+  namespace: {{ .Values.jobNamespace }}
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+    {{- if .Values.annotations }}
+      {{- toYaml .Values.annotations | nindent 4 }}
+    {{- end }}
+spec:
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      serviceAccountName: "secret-reader"
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: provision
+          image: {{ .Values.image }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+            - name: TENANT_NAME
+              value: {{ .Values.tenantName | quote }}
+            - name: FULL_VAULT_PATH
+              value: {{ .Values.vaultPath | quote }}
+            - name: BAO_ADDR
+              value: {{ .Values.baoAddr | quote }}
+            - name: BAO_ENV
+              value: {{ .Values.environment | quote }}
+            - name: FORCE_ROTATE_PASSWORD
+              value: {{ .Values.forceRotatePassword | quote }}
+            - name: EXTERNAL_SECRETS_NAMESPACE
+              value: {{ .Values.externalSecretsNamespace | quote }}
+          command:
+            - bash
+            - -euo
+            - pipefail
+            - -c
+            - |
+              ##── Auth Bao ────────────────────────────────────────────────
+              SECRET_ID="$(kubectl -n "${EXTERNAL_SECRETS_NAMESPACE}" get secret openbao-approle \
+                -o jsonpath='{.data.secret-id}' | base64 -d)"
+              ROLE_ID="$(kubectl -n "${EXTERNAL_SECRETS_NAMESPACE}" get secret openbao-approle \
+                -o jsonpath='{.data.role-id}' | base64 -d)"
+              BAO_TOKEN="$(bao write -field=token auth/approle/login \
+                role_id="$ROLE_ID" secret_id="$SECRET_ID")"
+              export BAO_TOKEN BAO_ADDR
+
+              echo "Checking token capabilities on auth/approle/role/*..."
+              CAPS="$(bao token capabilities 'auth/approle/role/*')"
+              if echo "$CAPS" | grep -q "deny"; then
+                echo "ERROR: insufficient token capabilities on auth/approle/role/*" >&2
+                exit 1
+              fi
+              echo "Token capabilities OK."
+
+              ##── Already exists? ─────────────────────────────────────────
+              if [ "${FORCE_ROTATE_PASSWORD}" != "true" ]; then
+                if bao kv get -mount=secret "${FULL_VAULT_PATH}" >/dev/null 2>&1; then
+                  echo "Secret ${FULL_VAULT_PATH} already exists, nothing to do."
+                  exit 0
+                fi
+              fi
+
+              ##── Generate values ─────────────────────────────────────────
+              {{- .Values.generator.script | nindent 14 }}
+
+              {{- range $i, $v := .Values.pushMappings }}
+              {{- if not $v.value }}
+              {{- if $.Values.generator.override }}
+              {{- if default false $v.need_plain }}
+              PLAIN_PASSWORD_{{ $i }}="$(openssl rand -base64 24 | tr -d '\n')"
+              PLAIN_PASSWORD="${PLAIN_PASSWORD_{{ $i }}}"
+              {{- end }}
+              GENERATED_{{ $i }}="$({{ required "generator.command is required when generator.override is true" $.Values.generator.command | trimSuffix "\n" }})"
+              {{- else }}
+              RANDOM_VALUE_{{ $i }}="$(openssl rand -base64 24 | tr -d '\n')"
+              {{- end }}
+              {{- end }}
+              {{- end }}
+
+              ##── Push to Bao ─────────────────────────────────────────────
+              echo "Storing secret ${FULL_VAULT_PATH}..."
+              bao_args=()
+              {{- range $i, $v := .Values.pushMappings }}
+              {{- $needsPlain := and (not $v.value) (default false $v.need_plain) }}
+              {{- if $v.value }}
+              bao_args+=( "{{ $v.property }}={{ $v.value }}" )
+              {{- else if $.Values.generator.override }}
+              bao_args+=( "{{ $v.property }}=${GENERATED_{{ $i }}}" )
+              {{- if $needsPlain }}
+              bao_args+=( "{{ printf "%s.plain-password" $v.property }}=${PLAIN_PASSWORD_{{ $i }}}" )
+              {{- end }}
+              {{- else }}
+              bao_args+=( "{{ $v.property }}=${RANDOM_VALUE_{{ $i }}}" )
+              {{- if $needsPlain }}
+              bao_args+=( "{{ printf "%s.plain-password" $v.property }}=${RANDOM_VALUE_{{ $i }}}" )
+              {{- end }}
+              {{- end }}
+              {{- end }}
+              bao kv put -mount=secret "${FULL_VAULT_PATH}" "${bao_args[@]}"
+
+              echo "[{{ .Values.clusterName }}] Done: ${FULL_VAULT_PATH}"
