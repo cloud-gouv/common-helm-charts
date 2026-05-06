@@ -97,6 +97,9 @@ tolerations: []
 # Affinity
 affinity: {}
 
+# PodSecurityContext
+podSecurityContext: {}
+
 # SecurityContext
 securityContext:
   privileged: false
@@ -105,3 +108,8 @@ securityContext:
   runAsNonRoot: true
   runAsUser: 1000
   runAsGroup: 1000
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
