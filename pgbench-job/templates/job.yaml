@@ -4,6 +4,7 @@ metadata:
   name: {{ include "pgbench-job.fullname" . }}-{{ now | date "20060102-150405" }}
   labels:
     {{- include "pgbench-job.labels" . | nindent 4 }}
+  namespace: {{ .Release.Namespace }}
 spec:
   backoffLimit: {{ .Values.job.backoffLimit }}
   {{- if .Values.job.ttlSecondsAfterFinished }}

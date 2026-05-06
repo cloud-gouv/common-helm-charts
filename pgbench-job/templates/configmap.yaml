@@ -4,6 +4,7 @@ metadata:
   name: {{ include "pgbench-job.fullname" . }}-scripts
   labels:
     {{- include "pgbench-job.labels" . | nindent 4 }}
+  namespace: {{ .Release.Namespace }}
 data:
   prepare_pgbench.sh: |
     #!/bin/bash

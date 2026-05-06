@@ -5,6 +5,7 @@ metadata:
   name: {{ include "pgbench-job.fullname" . }}-results
   labels:
     {{- include "pgbench-job.labels" . | nindent 4 }}
+  namespace: {{ .Release.Namespace }}
 spec:
   accessModes:
     - {{ .Values.results.accessMode }}
