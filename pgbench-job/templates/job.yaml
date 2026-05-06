@@ -60,6 +60,8 @@ spec:
         - name: results
           mountPath: /results
         {{- end }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
       volumes:
       - name: scripts
         configMap:
