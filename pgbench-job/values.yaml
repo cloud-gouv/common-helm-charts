@@ -1,0 +1,98 @@
+# Default values for pgbench-job
+
+# PostgreSQL connection details
+postgres:
+  # Host can be a CNPG cluster service name (e.g., cluster-name-rw)
+  host: "cluster-rw.tchap-pgbench.svc.cluster.local"
+  port: 5432
+  database: "app"
+  # Username - should match CNPG cluster app user
+  username: "app"
+  # Secret containing PostgreSQL password
+  # Expected key: password
+  existingSecret: ""
+  # Or provide password directly (not recommended for production)
+  password: ""
+
+# Benchmark configuration
+benchmark:
+  # Scale factor for pgbench initialization (100 = ~1.5GB database)
+  scaleFactor: 100
+  # Test duration in seconds
+  testDuration: 60
+  
+  # Test configurations
+  tests:
+    readonly:
+      clients: 8
+      threads: 2
+    simpleWrite:
+      clients: 8
+      threads: 2
+    readWrite:
+      clients: 8
+      threads: 2
+    lowConcurrency:
+      clients: 1
+      threads: 1
+    mediumConcurrency:
+      clients: 16
+      threads: 4
+    highConcurrency:
+      clients: 32
+      threads: 8
+    veryHighConcurrency:
+      clients: 64
+      threads: 8
+
+# Job configuration
+job:
+  # Job name
+  name: pgbench-benchmark
+  # Restart policy (Never or OnFailure)
+  restartPolicy: Never
+  # Backoff limit
+  backoffLimit: 2
+  # TTL after finished (in seconds) - cleanup after 1 hour
+  ttlSecondsAfterFinished: 3600
+
+# Pod configuration
+image:
+  repository: postgres
+  tag: "16-alpine"
+  pullPolicy: IfNotPresent
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+  requests:
+    cpu: 1000m
+    memory: 1Gi
+
+# Results persistence
+results:
+  # Enable persistence for benchmark results
+  enabled: true
+  # Storage class (leave empty for default)
+  storageClass: ""
+  # Size of PVC
+  size: 5Gi
+  # Access mode
+  accessMode: ReadWriteOnce
+
+# Service account
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # The name of the service account to use
+  name: ""
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
