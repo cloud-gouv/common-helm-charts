@@ -1,0 +1,77 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "pgbench-job.fullname" . }}-{{ now | date "20060102-150405" }}
+  labels:
+    {{- include "pgbench-job.labels" . | nindent 4 }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  backoffLimit: {{ .Values.job.backoffLimit }}
+  {{- if .Values.job.ttlSecondsAfterFinished }}
+  ttlSecondsAfterFinished: {{ .Values.job.ttlSecondsAfterFinished }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "pgbench-job.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "pgbench-job.serviceAccountName" . }}
+      restartPolicy: {{ .Values.job.restartPolicy }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: pgbench
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command: ["/bin/bash", "/scripts/run_benchmark.sh"]
+        env:
+        - name: PGHOST
+          value: {{ .Values.postgres.host | quote }}
+        - name: PGPORT
+          value: {{ .Values.postgres.port | quote }}
+        - name: PGDATABASE
+          value: {{ .Values.postgres.database | quote }}
+        - name: PGUSER
+          value: {{ .Values.postgres.username | quote }}
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              {{- if .Values.postgres.existingSecret }}
+              name: {{ .Values.postgres.existingSecret }}
+              {{- else }}
+              name: {{ include "pgbench-job.fullname" . }}-postgres
+              {{- end }}
+              key: password
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+        volumeMounts:
+        - name: scripts
+          mountPath: /scripts
+        {{- if .Values.results.enabled }}
+        - name: results
+          mountPath: /results
+        {{- end }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+      volumes:
+      - name: scripts
+        configMap:
+          name: {{ include "pgbench-job.fullname" . }}-scripts
+          defaultMode: 0755
+      {{- if .Values.results.enabled }}
+      - name: results
+        persistentVolumeClaim:
+          claimName: {{ include "pgbench-job.fullname" . }}-results
+      {{- end }}

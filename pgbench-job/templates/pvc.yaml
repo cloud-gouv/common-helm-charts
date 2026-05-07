@@ -1,0 +1,18 @@
+{{- if .Values.results.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "pgbench-job.fullname" . }}-results
+  labels:
+    {{- include "pgbench-job.labels" . | nindent 4 }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes:
+    - {{ .Values.results.accessMode }}
+  {{- if .Values.results.storageClass }}
+  storageClassName: {{ .Values.results.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.results.size }}
+{{- end }}

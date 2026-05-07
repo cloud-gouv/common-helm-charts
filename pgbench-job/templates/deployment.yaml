@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-deployment
+  labels:
+    app: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: postgres-client
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command:
+          - sleep
+          - infinity
+        env:
+        - name: PGHOST
+          value: "{{ .Values.postgres.host }}"
+        - name: PGPORT
+          value: "{{ .Values.postgres.port }}"
+        - name: PGDATABASE
+          value: "{{ .Values.postgres.database }}"
+        - name: PGUSER
+          value: "{{ .Values.postgres.username }}"
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.postgres.existingSecret }}
+              key: password
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+        volumeMounts:
+        {{- if .Values.results.enabled }}
+          - name: results
+            mountPath: /results
+        {{- end }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+      volumes:
+      {{- if .Values.results.enabled }}
+        - name: results
+          persistentVolumeClaim:
+            claimName: {{ include "pgbench-job.fullname" . }}-results
+      {{- end }}

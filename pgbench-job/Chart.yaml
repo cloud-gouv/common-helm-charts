@@ -1,0 +1,6 @@
+apiVersion: v2
+name: pgbench-job
+description: A Helm chart for running pgbench benchmarks against CNPG PostgreSQL clusters
+type: application
+version: 0.1.0
+appVersion: "1.0"
