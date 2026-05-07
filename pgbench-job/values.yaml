@@ -98,7 +98,8 @@ tolerations: []
 affinity: {}
 
 # PodSecurityContext
-podSecurityContext: {}
+podSecurityContext:
+  fsGroup: 999
 
 # SecurityContext
 securityContext:
