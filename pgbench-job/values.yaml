@@ -64,10 +64,9 @@ image:
 
 resources:
   limits:
-    cpu: 2000m
     memory: 2Gi
   requests:
-    cpu: 1000m
+    cpu: 100m
     memory: 1Gi
 
 # Results persistence
