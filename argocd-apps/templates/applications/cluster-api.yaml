@@ -93,6 +93,9 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - RespectIgnoreDifferences=true
+  {{- with $appData.extraSyncPolicies }}
+  {{ . }}
+  {{- endif }}
 #    automated:
 #      prune: true
 #      selfHeal: true
