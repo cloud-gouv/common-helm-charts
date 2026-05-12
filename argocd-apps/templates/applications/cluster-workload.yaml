@@ -52,10 +52,9 @@ spec:
       - CreateNamespace=true
       - ServerSideApply=true
       - RespectIgnoreDifferences=true
-#    automated:
-#      prune: true
-#      selfHeal: true
-#      allowEmpty: true
+    {{- with $data -}}
+    {{ .extraSyncPolicies | toYaml | nindent 4 }}
+    {{- end }}
     retry:
       limit: 5
       backoff:

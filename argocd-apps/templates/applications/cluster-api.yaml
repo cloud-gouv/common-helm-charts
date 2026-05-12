@@ -93,13 +93,9 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - RespectIgnoreDifferences=true
-  {{- with $appData.extraSyncPolicies }}
-  {{ . }}
-  {{- end }}
-#    automated:
-#      prune: true
-#      selfHeal: true
-#      allowEmpty: true
+    {{- with $data -}}
+    {{ .extraSyncPolicies | toYaml | nindent 4 }}
+    {{- end }}
     retry:
       limit: 5
       backoff:
