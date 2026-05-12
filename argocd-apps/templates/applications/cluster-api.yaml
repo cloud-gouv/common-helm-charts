@@ -95,7 +95,7 @@ spec:
       - RespectIgnoreDifferences=true
   {{- with $appData.extraSyncPolicies }}
   {{ . }}
-  {{- endif }}
+  {{- end }}
 #    automated:
 #      prune: true
 #      selfHeal: true
