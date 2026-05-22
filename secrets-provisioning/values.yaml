@@ -3,7 +3,6 @@ externalSecretsNamespace: "external-secrets"
 releaseName: ""
 # ── Secret identity ─────────────────────────────────────────────────────
 vaultPath: ""    # relative path: VAULT_PATH_BASE/<vaultSubPath>
-tenantName: ""
 
 # ── Cluster role ────────────────────────────────────────────────────────
 clusterRole: wapp
@@ -36,3 +35,7 @@ generator:
   command: argocd account bcrypt --password "$PLAIN_PASSWORD"
   # Use it for custome logic (eg: appRole)
   script: ""
+
+extraEnvVars: {}
+  # - name: TENANT_NAME
+  #   value: xxx

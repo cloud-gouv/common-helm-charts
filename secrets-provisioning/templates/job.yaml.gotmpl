@@ -31,8 +31,6 @@ spec:
             seccompProfile:
               type: RuntimeDefault
           env:
-            - name: TENANT_NAME
-              value: {{ .Values.tenantName | quote }}
             - name: FULL_VAULT_PATH
               value: {{ .Values.vaultPath | quote }}
             - name: BAO_ADDR
@@ -43,6 +41,15 @@ spec:
               value: {{ .Values.forceRotatePassword | quote }}
             - name: EXTERNAL_SECRETS_NAMESPACE
               value: {{ .Values.externalSecretsNamespace | quote }}
+            {{- with .Values.extraEnvVars }}
+            {{- range . }}
+            - name: {{ .name }}
+              {{- if .value }}
+              value: {{ .value | quote }}
+              {{- end }}
+            {{- end }}
+            {{- end }}
+            
           command:
             - bash
             - -euo
