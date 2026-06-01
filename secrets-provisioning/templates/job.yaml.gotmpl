@@ -3,7 +3,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: "sp-generator-{{ .Values.releaseName }}"
-  namespace: {{ .Values.jobNamespace }}
+  namespace: {{ .Values.externalSecretsNamespace }}
   annotations:
     argocd.argoproj.io/hook: Sync
     argocd.argoproj.io/hook-delete-policy: HookSucceeded

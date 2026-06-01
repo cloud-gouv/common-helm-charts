@@ -12,7 +12,6 @@ environment: "dev"
 baoAddr: ""
 secretStoreName: ""
 forceRotatePassword: false
-jobNamespace: "secrets-provisioning"
 image: "ghcr.io/cloud-gouv/cluster-secret-provisioning-image:sha-f5495bd"
 rbac:
   create: false

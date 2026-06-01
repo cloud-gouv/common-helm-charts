@@ -3,7 +3,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: secret-reader
-  namespace: {{ .Values.jobNamespace }}
+  namespace: {{ .Values.externalSecretsNamespace }}
   {{- with .Values.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -40,7 +40,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: secret-reader 
-    namespace: {{ .Values.jobNamespace }}
+    namespace: {{ .Values.externalSecretsNamespace }}
 roleRef:
   kind: Role
   name: secret-read-openbao-approle
