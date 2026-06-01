@@ -16,6 +16,8 @@ jobNamespace: "secrets-provisioning"
 image: "ghcr.io/cloud-gouv/cluster-secret-provisioning-image:sha-f5495bd"
 rbac:
   create: false
+job:
+  create: true
 
 # ── PushSecret mappings (secretKey -> property in Bao) ─────────────────
 pushMappings:
