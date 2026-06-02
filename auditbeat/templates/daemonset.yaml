@@ -4,15 +4,19 @@ metadata:
   name: auditbeat
   namespace: {{ .Release.Namespace }}
   labels:
-    k8s-app: auditbeat
+    app: auditbeat
+    app.kubernetes.io/name: auditbeat
+    app.kubernetes.io/version: 9.4.2
 spec:
   selector:
     matchLabels:
-      k8s-app: auditbeat
+      app: auditbeat
   template:
     metadata:
       labels:
-        k8s-app: auditbeat
+        app: auditbeat
+        app.kubernetes.io/name: auditbeat
+        app.kubernetes.io/version: 9.4.2
     spec:
       tolerations:
       - key: node-role.kubernetes.io/control-plane
