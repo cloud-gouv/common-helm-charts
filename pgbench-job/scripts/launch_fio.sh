@@ -18,9 +18,9 @@ function fiotest()
 }
 
 
-for MODE in read write randread randwrite
+for MODE in {{ .Values.fio.modes | join " " }}
 do
-        for BS in 1k 4k 8k 16k 32k 1M 32M
+        for BS in {{ .Values.fio.blockSizes | join " " }}
         do
                 echo ""
                 echo "================== $BS / $MODE ================="

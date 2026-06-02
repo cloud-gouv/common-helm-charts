@@ -139,3 +139,16 @@ securityContextFio:
 fio:
   runtime: 10
   numjobs: 1
+  modes:
+    - read
+    - write
+    - randread
+    - randwrite
+  blockSizes:
+    - 1k
+    - 4k
+    - 8k
+    - 16k
+    - 32k
+    - 1M
+    - 32M
