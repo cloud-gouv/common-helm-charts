@@ -30,7 +30,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        {{- toYaml .Values.podSecurityContextPgbench | nindent 8 }}
       containers:
       - name: pgbench
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -64,7 +64,7 @@ spec:
           mountPath: /results
         {{- end }}
         securityContext:
-          {{- toYaml .Values.securityContext | nindent 10 }}
+          {{- toYaml .Values.securityContextPgbench | nindent 10 }}
       volumes:
       - name: scripts
         configMap:

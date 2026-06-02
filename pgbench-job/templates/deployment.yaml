@@ -16,7 +16,7 @@ spec:
         app: {{ .Release.Name }}
     spec:
       securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        {{- toYaml .Values.podSecurityContextPgbench | nindent 8 }}
       containers:
       - name: postgres-client
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -46,7 +46,7 @@ spec:
             mountPath: /results
         {{- end }}
         securityContext:
-          {{- toYaml .Values.securityContext | nindent 10 }}
+          {{- toYaml .Values.securityContextPgbench | nindent 10 }}
       volumes:
       {{- if .Values.results.enabled }}
         - name: results
