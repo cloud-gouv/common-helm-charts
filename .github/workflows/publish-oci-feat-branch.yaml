@@ -1,0 +1,114 @@
+name: Publish Helm charts to GHCR (OCI) - manual test builds
+
+on:
+  push:
+    branches:
+      # - 'feat/**'
+      - 'envoy-gateway-policies-v2'
+
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version test (e.g. 1.2.3 or 0.0.0-test)'
+        required: true
+        default: '0.0.0-test'
+
+      charts:
+        description: 'Charts à publier (envoy-gateway-infra,envoy-gateway-app ou vide pour les deux)'
+        required: false
+        default: ''
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install Helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Login to GHCR
+        run: |
+          echo "${{ github.token }}" \
+            | helm registry login ghcr.io \
+                -u "${{ github.actor }}" \
+                --password-stdin
+
+      - name: Build and push charts
+        env:
+          OWNER: ${{ github.repository_owner }}
+          VERSION: ${{ github.event.inputs.version || '0.0.0-test' }}
+          SELECTED_CHARTS: ${{ github.event.inputs.charts }}
+        run: |
+          set -euo pipefail
+
+          repo="oci://ghcr.io/${OWNER}/common-helm-charts"
+
+          # seuls charts autorisés
+          allowed_charts="envoy-gateway-infra envoy-gateway-app"
+
+          mkdir -p dist
+
+          echo "Version: $VERSION"
+          echo "Selected charts: ${SELECTED_CHARTS:-all}"
+
+          for chart in */Chart.yaml; do
+            dir="$(dirname "$chart")"
+            name="$(basename "$dir")"
+
+            # whitelist stricte (sécurité)
+            case "$name" in
+              envoy-gateway-infra|envoy-gateway-app) ;;
+              *)
+                echo "Skip not allowed: $name"
+                continue
+                ;;
+            esac
+
+            # filtre input optionnel
+            if [ -n "${SELECTED_CHARTS:-}" ]; then
+              if ! echo ",$SELECTED_CHARTS," | grep -q ",$name,"; then
+                echo "Skip not selected: $name"
+                continue
+              fi
+            fi
+
+            echo "Packaging $name"
+            helm package "$dir" -d dist
+          done
+
+          if ! ls dist/*.tgz >/dev/null 2>&1; then
+            echo "No charts to publish"
+            exit 1
+          fi
+
+          for pkg in dist/*.tgz; do
+            name="$(helm show chart "$pkg" | awk -F': ' '$1=="name"{print $2}')"
+
+            echo "Processing $name"
+
+            tmpdir="$(mktemp -d)"
+            tar -xzf "$pkg" -C "$tmpdir"
+
+            yq -i ".version = \"${VERSION}\"" "$tmpdir/$name/Chart.yaml"
+
+            helm package "$tmpdir/$name" -d "$tmpdir"
+
+            helm push \
+              "$tmpdir/${name}-${VERSION}.tgz" \
+              "$repo"
+
+            rm -rf "$tmpdir"
+          done

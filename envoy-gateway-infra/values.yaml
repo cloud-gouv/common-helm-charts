@@ -1,0 +1,138 @@
+# =============================================================================
+# Envoy Gateway Routes — Helm Chart Values
+# Docs: https://gateway.envoyproxy.io/docs/
+# Gateway API spec: https://gateway-api.sigs.k8s.io/
+# =============================================================================
+
+global:
+  namespace: ""
+  labels: {}
+  annotations: {}
+
+# =============================================================================
+# GatewayClass
+# Cluster-scoped resource — définit quel controller gère les Gateways.
+# En général une seule GatewayClass par cluster (ou une par "profil" réseau).
+# ⚠️  Ressource cluster-scoped : pas de namespace.
+# =============================================================================
+gatewayClasses: []
+# - name: eg                          # nom par défaut Envoy Gateway
+#   labels: {}
+#   annotations: {}
+#   description: "Default Envoy Gateway class"
+#
+#   # Controller qui prend en charge cette classe
+#   # Valeur par défaut EG (ne pas changer sauf custom controller)
+#   controllerName: gateway.envoyproxy.io/gatewayclass-controller
+#
+#   # Référence optionnelle vers une EnvoyProxy (configuration avancée du proxy)
+#   # Permet de personnaliser : provider, logging, telemetry, bootstrap, etc.
+#   parametersRef:
+#     group: gateway.envoyproxy.io
+#     kind: EnvoyProxy
+#     name: my-envoy-proxy-config
+#     namespace: envoy-gateway-system
+#
+# # Exemple : deux classes pour séparer trafic public / interne
+# - name: public-gateway
+#   description: "Internet-facing gateway"
+#   controllerName: gateway.envoyproxy.io/gatewayclass-controller
+#   parametersRef:
+#     group: gateway.envoyproxy.io
+#     kind: EnvoyProxy
+#     name: public-envoy-proxy
+#     namespace: envoy-gateway-system
+#
+# - name: private-gateway
+#   description: "Internal/admin gateway"
+#   controllerName: gateway.envoyproxy.io/gatewayclass-controller
+#   parametersRef:
+#     group: gateway.envoyproxy.io
+#     kind: EnvoyProxy
+#     name: private-envoy-proxy
+#     namespace: envoy-gateway-system
+
+# =============================================================================
+# Gateway
+# Entry point: defines listeners (HTTP, HTTPS, TCP, TLS, UDP)
+# =============================================================================
+gateways: []
+# - name: my-gateway
+#   namespace: ""
+#   labels: {}
+#   annotations:
+#     cert-manager.io/cluster-issuer: letsencrypt-prod
+#
+#   # GatewayClass — "eg" is the default Envoy Gateway class name
+#   gatewayClassName: eg
+#
+#   # Optional: labels/annotations pushed to the generated Envoy Deployment/Service
+#   infrastructure:
+#     labels:
+#       app: my-gateway
+#     annotations:
+#       service.beta.kubernetes.io/aws-load-balancer-type: nlb
+#
+#   listeners:
+#     # ── Plain HTTP listener ────────────────────────────────────────────────
+#     - name: http
+#       protocol: HTTP
+#       port: 80
+#       hostname: "*.example.com"          # optional wildcard
+#       allowedRoutes:
+#         namespaces:
+#           from: All                      # Same | All | Selector
+#         kinds:
+#           - group: gateway.networking.k8s.io
+#             kind: HTTPRoute
+#
+#     # ── HTTPS listener (TLS Terminate) ────────────────────────────────────
+#     - name: https
+#       protocol: HTTPS
+#       port: 443
+#       hostname: "*.example.com"
+#       tls:
+#         mode: Terminate                  # Terminate | Passthrough
+#         certificateRefs:
+#           - group: ""
+#             kind: Secret
+#             name: wildcard-tls-secret
+#             namespace: cert-manager
+#       allowedRoutes:
+#         namespaces:
+#           from: All
+#
+#     # ── TLS Passthrough listener ──────────────────────────────────────────
+#     - name: tls-passthrough
+#       protocol: TLS
+#       port: 8443
+#       tls:
+#         mode: Passthrough
+#       allowedRoutes:
+#         namespaces:
+#           from: All
+#         kinds:
+#           - group: gateway.networking.k8s.io
+#             kind: TLSRoute
+#
+#     # ── TCP listener ──────────────────────────────────────────────────────
+#     - name: tcp-5432
+#       protocol: TCP
+#       port: 5432
+#       allowedRoutes:
+#         namespaces:
+#           from: Same
+#         kinds:
+#           - group: gateway.networking.k8s.io
+#             kind: TCPRoute
+#
+#     # ── UDP listener ──────────────────────────────────────────────────────
+#     - name: udp-53
+#       protocol: UDP
+#       port: 53
+#       allowedRoutes:
+#         namespaces:
+#           from: Same
+#         kinds:
+#           - group: gateway.networking.k8s.io
+#             kind: UDPRoute

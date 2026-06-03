@@ -1,0 +1,18 @@
+╔══════════════════════════════════════════════════════════════╗
+║         Envoy Gateway Routes — Installed!                    ║
+╚══════════════════════════════════════════════════════════════╝
+
+Release  : {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+Chart    : {{ .Chart.Name }}-{{ .Chart.Version }}
+
+Resources deployed:
+  GatewayClass     : {{ len .Values.gatewayClasses }}
+  Gateway          : {{ len .Values.gateways }}
+
+Verify status:
+  kubectl get gatewayclass
+  kubectl get gateway -n {{ .Release.Namespace }}
+  kubectl describe gateway -n {{ .Release.Namespace }}
+
+Docs: https://gateway.envoyproxy.io/docs/

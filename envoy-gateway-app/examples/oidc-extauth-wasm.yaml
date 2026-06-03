@@ -1,0 +1,92 @@
+# =============================================================================
+# Example: OIDC SSO + External Authorization + Wasm Filter
+# Usage: helm install sso-policies ./envoy-gateway-policies -f examples/oidc-extauth-wasm.yaml
+# =============================================================================
+
+securityPolicies:
+  # ── OIDC for browser-facing routes ─────────────────────────────────────────
+  - name: sso-auth-policy
+    targetRef:
+      group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: web-app-route
+
+    oidc:
+      provider:
+        issuer: "https://keycloak.example.com/realms/myrealm"
+      clientID: "my-web-app"
+      clientSecret:
+        name: keycloak-oidc-secret    # kubectl create secret generic keycloak-oidc-secret --from-literal=client-secret=<SECRET>
+      redirectURL: "https://app.example.com/oauth2/callback"
+      scopes:
+        - openid
+        - email
+        - profile
+        - offline_access
+      cookieConfig:
+        sameSite: Strict
+      forwardAccessToken: true
+      refreshToken: true
+      logoutPath: /oauth2/logout
+
+  # ── ExtAuth for service-to-service routes ──────────────────────────────────
+  - name: extauth-policy
+    targetRef:
+      group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: internal-api-route
+
+    extAuth:
+      grpc:
+        backendRefs:
+          - name: opa-authz-service
+            namespace: authz
+            port: 9191
+      headersToExtAuth:
+        - Authorization
+        - X-Request-ID
+        - X-User-ID
+        - X-Forwarded-For
+      failOpen: false
+
+# ── Wasm + ExtProc extension filters ─────────────────────────────────────────
+envoyExtensionPolicies:
+  - name: observability-extension
+    targetRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: prod-gateway
+
+    wasm:
+      - name: request-id-injector
+        rootID: request_id_root
+        code:
+          type: Image
+          image:
+            url: "oci://ghcr.io/my-org/request-id-wasm:v1.2.0"
+            pullPolicy: IfNotPresent
+            pullSecret:
+              namespace: default
+              name: ghcr-pull-secret
+        config: |
+          {
+            "header_name": "x-request-id",
+            "override_existing": false
+          }
+        failOpen: true
+
+    extProc:
+      - name: data-masking-proc
+        backendRefs:
+          - name: data-masking-service
+            namespace: security
+            port: 9002
+        processingMode:
+          request:
+            headers: Send
+            body: Streamed
+          response:
+            headers: Send
+            body: Streamed
+        failOpen: false
+        messageTimeout: "500ms"
