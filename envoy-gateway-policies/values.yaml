@@ -1,0 +1,475 @@
+# =============================================================================
+# Envoy Gateway Policies - Helm Chart Values
+# Docs: https://gateway.envoyproxy.io/docs/
+# =============================================================================
+
+# -- Global settings applied to all resources
+global:
+  # -- Default namespace (uses Release.Namespace if empty)
+  namespace: ""
+  # -- Common labels added to all resources
+  labels: {}
+  # -- Common annotations added to all resources
+  annotations: {}
+
+# =============================================================================
+# SecurityPolicy
+# Defines authentication, authorization, CORS, JWT, OIDC, BasicAuth, etc.
+# =============================================================================
+securityPolicies:
+  []
+  # - name: my-security-policy
+  #   namespace: ""          # defaults to Release.Namespace
+  #   labels: {}
+  #   annotations: {}
+  #
+  #   # Target the Gateway or HTTPRoute this policy applies to
+  #   targetRef:
+  #     group: gateway.networking.k8s.io
+  #     kind: Gateway          # or HTTPRoute
+  #     name: my-gateway
+  #     # sectionName: listener-name  # optional, for Gateway listener targeting
+  #
+  #   # --- JWT Authentication ---
+  #   jwt:
+  #     providers:
+  #       - name: my-jwt-provider
+  #         issuer: "https://auth.example.com"
+  #         audiences:
+  #           - "my-api"
+  #         remoteJWKS:
+  #           uri: "https://auth.example.com/.well-known/jwks.json"
+  #         claimToHeaders:
+  #           - claim: sub
+  #             header: x-user-id
+  #           - claim: email
+  #             header: x-user-email
+  #         extractFrom:
+  #           headers:
+  #             - name: Authorization
+  #               valuePrefix: "Bearer "
+  #           cookies:
+  #             - access_token
+  #
+  #   # --- OIDC Authentication ---
+  #   oidc:
+  #     provider:
+  #       issuer: "https://accounts.google.com"
+  #     clientID: "my-client-id"
+  #     clientSecret:
+  #       name: oidc-secret         # Kubernetes Secret name
+  #     redirectURL: "https://app.example.com/oauth2/callback"
+  #     scopes:
+  #       - openid
+  #       - email
+  #       - profile
+  #     cookieConfig:
+  #       sameSite: Lax
+  #
+  #   # --- Basic Auth ---
+  #   basicAuth:
+  #     users:
+  #       name: basic-auth-users    # Secret with .htpasswd format
+  #
+  #   # --- API Key Auth ---
+  #   apiKeyAuth:
+  #     credentials:
+  #       - name: api-key-secret
+  #     extractFrom:
+  #       headers:
+  #         - name: x-api-key
+  #
+  #   # --- CORS ---
+  #   cors:
+  #     allowOrigins:
+  #       - "https://app.example.com"
+  #       - "https://*.example.com"
+  #     allowMethods:
+  #       - GET
+  #       - POST
+  #       - PUT
+  #       - DELETE
+  #       - OPTIONS
+  #     allowHeaders:
+  #       - Authorization
+  #       - Content-Type
+  #       - X-Request-ID
+  #     exposeHeaders:
+  #       - X-Request-ID
+  #     maxAge: "86400"
+  #     allowCredentials: true
+  #
+  #   # --- Authorization (OPA / Kubernetes RBAC style) ---
+  #   authorization:
+  #     defaultAction: Deny          # Allow or Deny
+  #     rules:
+  #       - name: allow-admins
+  #         action: Allow
+  #         principal:
+  #           jwt:
+  #             provider: my-jwt-provider
+  #             claims:
+  #               - name: role
+  #                 values:
+  #                   - admin
+  #       - name: allow-get-public
+  #         action: Allow
+  #         principal:
+  #           clientCIDRs:
+  #             - "10.0.0.0/8"
+  #
+  #   # --- ExtAuth (external authorization service) ---
+  #   extAuth:
+  #     grpc:
+  #       backendRefs:
+  #         - name: authz-service
+  #           namespace: auth
+  #           port: 9001
+  #     headersToExtAuth:
+  #       - Authorization
+  #       - X-Request-ID
+  #     failOpen: false
+
+# =============================================================================
+# BackendTLSPolicy
+# Configures TLS settings for connections TO backends (upstream TLS)
+# =============================================================================
+backendTLSPolicies:
+  []
+  # - name: my-backend-tls
+  #   namespace: ""
+  #   labels: {}
+  #   annotations: {}
+  #
+  #   targetRef:
+  #     group: ""
+  #     kind: Service
+  #     name: my-backend-service
+  #     # sectionName: "443"      # optional port name
+  #
+  #   validation:
+  #     # Reference to CA certificate (ConfigMap or Secret)
+  #     caCertificateRefs:
+  #       - group: ""
+  #         kind: ConfigMap
+  #         name: backend-ca-cert
+  #     # Hostname used for SNI and certificate validation
+  #     hostname: backend.internal.example.com
+  #     # Skip hostname verification (not recommended for production)
+  #     wellKnownCACertificates: ""   # "System" to use system CAs
+  #
+  #   # Optional: client certificate for mTLS to backend
+  #   clientCertificateRef:
+  #     group: ""
+  #     kind: Secret
+  #     name: client-mtls-cert
+
+# =============================================================================
+# BackendLBPolicy
+# Configures load balancing algorithm for backends
+# =============================================================================
+backendLBPolicies:
+  []
+  # - name: my-lb-policy
+  #   namespace: ""
+  #   labels: {}
+  #   annotations: {}
+  #
+  #   targetRef:
+  #     group: ""
+  #     kind: Service
+  #     name: my-backend-service
+  #
+  #   sessionPersistence:
+  #     sessionName: my-session
+  #     type: Cookie                  # Cookie or Header
+  #     cookieConfig:
+  #       lifetimeType: Permanent     # Session or Permanent
+  #       ttl: "3600s"
+  #     # type: Header
+  #     # headerConfig:
+  #     #   headerName: x-session-id
+  #
+  #   loadBalancer:
+  #     type: RoundRobin             # RoundRobin, LeastRequest, Random, ConsistentHash
+  #     # consistentHash:
+  #     #   type: Header             # Header, Cookie, SourceIP
+  #     #   header:
+  #     #     name: x-user-id
+  #
+  #   # Connection pool settings
+  #   circuitBreaker:
+  #     maxConnections: 1024
+  #     maxPendingRequests: 1024
+  #     maxParallelRequests: 1024
+  #     maxParallelRetries: 3
+
+# =============================================================================
+# ClientTrafficPolicy
+# Configures how Envoy handles incoming client connections (listener settings)
+# =============================================================================
+clientTrafficPolicies:
+  []
+  # - name: my-client-traffic
+  #   namespace: ""
+  #   labels: {}
+  #   annotations: {}
+  #
+  #   targetRef:
+  #     group: gateway.networking.k8s.io
+  #     kind: Gateway
+  #     name: my-gateway
+  #     sectionName: https             # optional: target specific listener
+  #
+  #   # TLS settings for the listener
+  #   tls:
+  #     clientValidation:
+  #       # mTLS: require client certificates
+  #       caCertificateRefs:
+  #         - group: ""
+  #           kind: Secret
+  #           name: client-ca-secret
+  #       optional: false
+  #     alpnProtocols:
+  #       - h2
+  #       - http/1.1
+  #     minVersion: "1.2"             # TLS 1.2 or 1.3
+  #     maxVersion: "1.3"
+  #     ciphers:
+  #       - ECDHE-RSA-AES256-GCM-SHA384
+  #       - ECDHE-RSA-CHACHA20-POLY1305
+  #
+  #   # HTTP settings
+  #   http1:
+  #     enableTrailers: true
+  #     preserveHeaderCase: false
+  #     http10:
+  #       useDefaultHost: true
+  #   http2:
+  #     initialStreamWindowSize: 65536
+  #     initialConnectionWindowSize: 1048576
+  #     maxConcurrentStreams: 100
+  #
+  #   # Health check endpoint
+  #   healthCheck:
+  #     path: /healthz
+  #
+  #   # Proxy Protocol
+  #   enableProxyProtocol: false
+  #
+  #   # Timeouts
+  #   timeout:
+  #     http:
+  #       requestReceivedTimeout: "30s"
+  #       idleTimeout: "300s"
+  #
+  #   # Headers
+  #   headers:
+  #     enableEnvoyHeaders: false
+  #     xForwardedClientCert:
+  #       mode: AppendForward        # Sanitize, Append, AppendForward, SanitizeSet, AlwaysForwardOnly
+  #       certDetailsToAdd:
+  #         - Subject
+  #         - Cert
+  #         - Chain
+  #
+  #   # Connection limits
+  #   connection:
+  #     connectionLimit:
+  #       value: 10000
+  #       closeDelay: "5s"
+  #     bufferLimit: "32768"
+
+# =============================================================================
+# BackendTrafficPolicy
+# Configures how Envoy handles traffic TO backends (retry, timeout, rate limit, etc.)
+# =============================================================================
+backendTrafficPolicies:
+  []
+  # - name: my-backend-traffic
+  #   namespace: ""
+  #   labels: {}
+  #   annotations: {}
+  #
+  #   targetRef:
+  #     group: gateway.networking.k8s.io
+  #     kind: HTTPRoute
+  #     name: my-route
+  #
+  #   # Retry policy
+  #   retry:
+  #     numRetries: 3
+  #     perRetry:
+  #       timeout: "5s"
+  #       backOff:
+  #         baseInterval: "100ms"
+  #         maxInterval: "1s"
+  #     retryOn:
+  #       triggers:
+  #         - connect-failure
+  #         - retriable-4xx
+  #         - gateway-error
+  #       httpStatusCodes:
+  #         - 503
+  #         - 504
+  #
+  #   # Timeouts
+  #   timeout:
+  #     http:
+  #       connectionIdleTimeout: "300s"
+  #       maxConnectionDuration: "3600s"
+  #     tcp:
+  #       connectTimeout: "5s"
+  #
+  #   # Health check (active)
+  #   healthCheck:
+  #     active:
+  #       type: HTTP                   # HTTP, TCP, GRPC
+  #       http:
+  #         path: /health
+  #         expectedStatuses:
+  #           - 200
+  #           - 204
+  #       interval: "10s"
+  #       timeout: "3s"
+  #       unhealthyThreshold: 3
+  #       healthyThreshold: 2
+  #     passive:
+  #       baseEjectionTime: "30s"
+  #       interval: "1s"
+  #       maxEjectionPercent: 100
+  #       consecutiveGatewayErrors: 5
+  #       consecutive5XxErrors: 5
+  #
+  #   # TCP keepalive for backend connections
+  #   tcpKeepalive:
+  #     probes: 3
+  #     idle: "120s"
+  #     interval: "60s"
+  #
+  #   # Rate limit (global, requires ratelimit service)
+  #   rateLimit:
+  #     type: Global
+  #     global:
+  #       rules:
+  #         - clientSelectors:
+  #             - headers:
+  #                 - name: x-user-id
+  #                   type: Distinct
+  #           limit:
+  #             requests: 100
+  #             unit: Minute
+  #         - clientSelectors:
+  #             - sourceCIDR:
+  #                 value: 0.0.0.0/0
+  #                 type: Distinct
+  #           limit:
+  #             requests: 1000
+  #             unit: Hour
+  #
+  #   # Local rate limit (per Envoy instance)
+  #   rateLimit:
+  #     type: Local
+  #     local:
+  #       rules:
+  #         - limit:
+  #             requests: 50
+  #             unit: Second
+  #
+  #   # Connection pool
+  #   circuitBreaker:
+  #     maxConnections: 1024
+  #     maxPendingRequests: 1024
+  #     maxParallelRequests: 1024
+  #     maxParallelRetries: 3
+  #
+  #   # Load balancer
+  #   loadBalancer:
+  #     type: LeastRequest
+  #
+  #   # Compression
+  #   compression:
+  #     type: Gzip
+  #     gzip: {}
+
+# =============================================================================
+# EnvoyPatchPolicy
+# Low-level Envoy xDS configuration patches (advanced use)
+# =============================================================================
+envoyPatchPolicies:
+  []
+  # - name: my-envoy-patch
+  #   namespace: ""
+  #   labels: {}
+  #   annotations: {}
+  #   priority: 0
+  #
+  #   targetRef:
+  #     group: gateway.networking.k8s.io
+  #     kind: GatewayClass
+  #     name: eg
+  #
+  #   patches:
+  #     - type: HTTPListener         # HTTPListener, NetworkFilter, HTTPFilter, Cluster, RouteConfiguration
+  #       name: "my-gateway/my-namespace/listener-name"
+  #       operation:
+  #         op: add                  # add, remove, replace, move, copy
+  #         path: "/default_filter_chain/filters/0/typed_config/drain_timeout"
+  #         value: "300s"
+  #     - type: Cluster
+  #       name: "my-service/my-namespace/443"
+  #       operation:
+  #         op: add
+  #         path: "/upstream_config"
+  #         value:
+  #           connect_timeout: "10s"
+
+# =============================================================================
+# EnvoyExtensionPolicy
+# Attaches Wasm or External Process extensions
+# =============================================================================
+envoyExtensionPolicies:
+  []
+  # - name: my-extension
+  #   namespace: ""
+  #   labels: {}
+  #   annotations: {}
+  #
+  #   targetRef:
+  #     group: gateway.networking.k8s.io
+  #     kind: HTTPRoute
+  #     name: my-route
+  #
+  #   wasm:
+  #     - name: my-wasm-filter
+  #       rootID: my_root_id
+  #       code:
+  #         type: Image
+  #         image:
+  #           url: "oci://my-registry/my-wasm-filter:v1.0.0"
+  #           pullPolicy: IfNotPresent
+  #           pullSecret:
+  #             namespace: default
+  #             name: registry-secret
+  #       config: |
+  #         {
+  #           "header_name": "x-wasm-processed",
+  #           "header_value": "true"
+  #         }
+  #       failOpen: false
+  #
+  #   extProc:
+  #     - name: my-ext-proc
+  #       backendRefs:
+  #         - name: ext-proc-service
+  #           namespace: default
+  #           port: 9002
+  #       processingMode:
+  #         request:
+  #           headers: Send
+  #           body: None
+  #         response:
+  #           headers: Send
+  #           body: None
+  #       failOpen: false
+  #       messageTimeout: "200ms"

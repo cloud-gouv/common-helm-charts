@@ -1,0 +1,28 @@
+╔══════════════════════════════════════════════════════════════╗
+║           Envoy Gateway Policies — Installed!                ║
+╚══════════════════════════════════════════════════════════════╝
+
+Release : {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+Chart    : {{ .Chart.Name }}-{{ .Chart.Version }}
+
+Resources deployed:
+  SecurityPolicy         : {{ len .Values.securityPolicies }}
+  BackendTLSPolicy       : {{ len .Values.backendTLSPolicies }}
+  BackendLBPolicy        : {{ len .Values.backendLBPolicies }}
+  ClientTrafficPolicy    : {{ len .Values.clientTrafficPolicies }}
+  BackendTrafficPolicy   : {{ len .Values.backendTrafficPolicies }}
+  EnvoyPatchPolicy       : {{ len .Values.envoyPatchPolicies }}
+  EnvoyExtensionPolicy   : {{ len .Values.envoyExtensionPolicies }}
+
+To verify your policies:
+  kubectl get securitypolicy,backendtlspolicy,backendlbpolicy \
+    -n {{ .Release.Namespace }}
+
+  kubectl get clienttrafficpolicy,backendtrafficpolicy \
+    -n {{ .Release.Namespace }}
+
+To check policy status (accepted / reconciled):
+  kubectl describe securitypolicy -n {{ .Release.Namespace }}
+
+Docs: https://gateway.envoyproxy.io/docs/

@@ -1,0 +1,83 @@
+{{- range .Values.backendLBPolicies }}
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendLBPolicy
+metadata:
+  name: {{ .name }}
+  namespace: {{ include "envoy-gateway-policies.namespace" (list . $) }}
+  labels:
+    {{- include "envoy-gateway-policies.labels" $ | nindent 4 }}
+    {{- with .labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- $annot := dict "globalAnnotations" $.Values.global.annotations "localAnnotations" .annotations }}
+  {{- with include "envoy-gateway-policies.annotations" $annot }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .targetRefs }}
+  {{- include "envoy-gateway-policies.targetRefs" .targetRefs | nindent 2 }}
+  {{- else if .targetRef }}
+  targetRefs:
+    - group: {{ .targetRef.group | default "" | quote }}
+      kind: {{ .targetRef.kind }}
+      name: {{ .targetRef.name }}
+      {{- with .targetRef.sectionName }}
+      sectionName: {{ . }}
+      {{- end }}
+  {{- end }}
+
+  {{- with .sessionPersistence }}
+  sessionPersistence:
+    sessionName: {{ .sessionName }}
+    type: {{ .type }}
+    {{- if eq .type "Cookie" }}
+    {{- with .cookieConfig }}
+    cookieConfig:
+      lifetimeType: {{ .lifetimeType | default "Session" }}
+      {{- with .ttl }}
+      ttl: {{ . }}
+      {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- if eq .type "Header" }}
+    {{- with .headerConfig }}
+    headerConfig:
+      headerName: {{ .headerName }}
+    {{- end }}
+    {{- end }}
+  {{- end }}
+
+  {{- with .loadBalancer }}
+  loadBalancer:
+    type: {{ .type | default "RoundRobin" }}
+    {{- if eq (.type | default "RoundRobin") "ConsistentHash" }}
+    {{- with .consistentHash }}
+    consistentHash:
+      type: {{ .type }}
+      {{- if eq .type "Header" }}
+      header:
+        name: {{ .header.name }}
+      {{- end }}
+      {{- if eq .type "Cookie" }}
+      cookie:
+        name: {{ .cookie.name }}
+        {{- with .cookie.ttl }}
+        ttl: {{ . }}
+        {{- end }}
+        {{- with .cookie.attributes }}
+        attributes:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- if eq (.type | default "") "LeastRequest" }}
+    {{- with .slowStart }}
+    slowStart:
+      window: {{ .window }}
+    {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}

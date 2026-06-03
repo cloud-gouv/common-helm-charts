@@ -1,0 +1,48 @@
+{{- range .Values.backendTLSPolicies }}
+---
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: BackendTLSPolicy
+metadata:
+  name: {{ .name }}
+  namespace: {{ include "envoy-gateway-policies.namespace" (list . $) }}
+  labels:
+    {{- include "envoy-gateway-policies.labels" $ | nindent 4 }}
+    {{- with .labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- $annot := dict "globalAnnotations" $.Values.global.annotations "localAnnotations" .annotations }}
+  {{- with include "envoy-gateway-policies.annotations" $annot }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .targetRefs }}
+  {{- include "envoy-gateway-policies.targetRefs" .targetRefs | nindent 2 }}
+  {{- else if .targetRef }}
+  targetRefs:
+    - group: {{ .targetRef.group | default "" | quote }}
+      kind: {{ .targetRef.kind }}
+      name: {{ .targetRef.name }}
+      {{- with .targetRef.sectionName }}
+      sectionName: {{ . }}
+      {{- end }}
+  {{- end }}
+  validation:
+    {{- with .validation.wellKnownCACertificates }}
+    wellKnownCACertificates: {{ . }}
+    {{- end }}
+    {{- with .validation.caCertificateRefs }}
+    caCertificateRefs:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    hostname: {{ .validation.hostname }}
+  {{- with .clientCertificateRef }}
+  clientCertificateRef:
+    group: {{ .group | default "" | quote }}
+    kind: {{ .kind | default "Secret" }}
+    name: {{ .name }}
+    {{- with .namespace }}
+    namespace: {{ . }}
+    {{- end }}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,187 @@
+{{- range .Values.clientTrafficPolicies }}
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: ClientTrafficPolicy
+metadata:
+  name: {{ .name }}
+  namespace: {{ include "envoy-gateway-policies.namespace" (list . $) }}
+  labels:
+    {{- include "envoy-gateway-policies.labels" $ | nindent 4 }}
+    {{- with .labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- $annot := dict "globalAnnotations" $.Values.global.annotations "localAnnotations" .annotations }}
+  {{- with include "envoy-gateway-policies.annotations" $annot }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .targetRefs }}
+  {{- include "envoy-gateway-policies.targetRefs" .targetRefs | nindent 2 }}
+  {{- else if .targetRef }}
+  {{- include "envoy-gateway-policies.targetRef" .targetRef | nindent 2 }}
+  {{- end }}
+
+  {{- with .tls }}
+  tls:
+    {{- with .clientValidation }}
+    clientValidation:
+      {{- with .caCertificateRefs }}
+      caCertificateRefs:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if hasKey . "optional" }}
+      optional: {{ .optional }}
+      {{- end }}
+    {{- end }}
+    {{- with .alpnProtocols }}
+    alpnProtocols:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .minVersion }}
+    minVersion: {{ . | quote }}
+    {{- end }}
+    {{- with .maxVersion }}
+    maxVersion: {{ . | quote }}
+    {{- end }}
+    {{- with .ciphers }}
+    ciphers:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .ecdhCurves }}
+    ecdhCurves:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .signatureAlgorithms }}
+    signatureAlgorithms:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+  {{- end }}
+
+  {{- with .http1 }}
+  http1:
+    {{- if hasKey . "enableTrailers" }}
+    enableTrailers: {{ .enableTrailers }}
+    {{- end }}
+    {{- if hasKey . "preserveHeaderCase" }}
+    preserveHeaderCase: {{ .preserveHeaderCase }}
+    {{- end }}
+    {{- with .http10 }}
+    http10:
+      {{- if hasKey . "useDefaultHost" }}
+      useDefaultHost: {{ .useDefaultHost }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+
+  {{- with .http2 }}
+  http2:
+    {{- with .initialStreamWindowSize }}
+    initialStreamWindowSize: {{ . }}
+    {{- end }}
+    {{- with .initialConnectionWindowSize }}
+    initialConnectionWindowSize: {{ . }}
+    {{- end }}
+    {{- with .maxConcurrentStreams }}
+    maxConcurrentStreams: {{ . }}
+    {{- end }}
+    {{- if hasKey . "onInvalidMessage" }}
+    onInvalidMessage: {{ .onInvalidMessage }}
+    {{- end }}
+  {{- end }}
+
+  {{- with .http3 }}
+  http3: {}
+  {{- end }}
+
+  {{- with .healthCheck }}
+  healthCheck:
+    path: {{ .path }}
+  {{- end }}
+
+  {{- if hasKey . "enableProxyProtocol" }}
+  enableProxyProtocol: {{ .enableProxyProtocol }}
+  {{- end }}
+
+  {{- with .timeout }}
+  timeout:
+    {{- with .http }}
+    http:
+      {{- with .requestReceivedTimeout }}
+      requestReceivedTimeout: {{ . }}
+      {{- end }}
+      {{- with .idleTimeout }}
+      idleTimeout: {{ . }}
+      {{- end }}
+    {{- end }}
+    {{- with .tcp }}
+    tcp:
+      {{- with .connectTimeout }}
+      connectTimeout: {{ . }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+
+  {{- with .headers }}
+  headers:
+    {{- if hasKey . "enableEnvoyHeaders" }}
+    enableEnvoyHeaders: {{ .enableEnvoyHeaders }}
+    {{- end }}
+    {{- with .xForwardedClientCert }}
+    xForwardedClientCert:
+      mode: {{ .mode }}
+      {{- with .certDetailsToAdd }}
+      certDetailsToAdd:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- end }}
+    {{- with .withUnderscoresAction }}
+    withUnderscoresAction: {{ . }}
+    {{- end }}
+    {{- with .preserveXRequestID }}
+    preserveXRequestID: {{ . }}
+    {{- end }}
+  {{- end }}
+
+  {{- with .connection }}
+  connection:
+    {{- with .connectionLimit }}
+    connectionLimit:
+      value: {{ .value }}
+      {{- with .closeDelay }}
+      closeDelay: {{ . }}
+      {{- end }}
+    {{- end }}
+    {{- with .bufferLimit }}
+    bufferLimit: {{ . }}
+    {{- end }}
+  {{- end }}
+
+  {{- with .clientIPDetection }}
+  clientIPDetection:
+    {{- with .xForwardedFor }}
+    xForwardedFor:
+      numTrustedHops: {{ .numTrustedHops | default 1 }}
+    {{- end }}
+    {{- with .customHeader }}
+    customHeader:
+      name: {{ .name }}
+      {{- with .failClosed }}
+      failClosed: {{ . }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+
+  {{- with .tcpKeepalive }}
+  tcpKeepalive:
+    {{- with .probes }}
+    probes: {{ . }}
+    {{- end }}
+    {{- with .idle }}
+    idle: {{ . }}
+    {{- end }}
+    {{- with .interval }}
+    interval: {{ . }}
+    {{- end }}
+  {{- end }}
+{{- end }}

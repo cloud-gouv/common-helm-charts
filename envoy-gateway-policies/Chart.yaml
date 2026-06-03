@@ -1,0 +1,23 @@
+apiVersion: v2
+name: envoy-gateway-policies
+description: |
+  Helm chart for managing Envoy Gateway API policies including
+  SecurityPolicy, BackendTLSPolicy, BackendLBPolicy, ClientTrafficPolicy,
+  EnvoyPatchPolicy, HTTPRouteFilter and RateLimitFilter.
+type: application
+version: 1.0.0
+appVersion: "1.2.0"
+keywords:
+  - envoy
+  - gateway
+  - security
+  - policies
+  - kubernetes
+home: https://gateway.envoyproxy.io
+sources:
+  - https://github.com/envoyproxy/gateway
+maintainers:
+  - name: platform-team
+    email: platform@example.com
+annotations:
+  category: Networking

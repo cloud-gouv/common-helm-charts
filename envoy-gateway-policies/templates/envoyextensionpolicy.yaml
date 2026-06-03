@@ -1,0 +1,97 @@
+{{- range .Values.envoyExtensionPolicies }}
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyExtensionPolicy
+metadata:
+  name: {{ .name }}
+  namespace: {{ include "envoy-gateway-policies.namespace" (list . $) }}
+  labels:
+    {{- include "envoy-gateway-policies.labels" $ | nindent 4 }}
+    {{- with .labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- $annot := dict "globalAnnotations" $.Values.global.annotations "localAnnotations" .annotations }}
+  {{- with include "envoy-gateway-policies.annotations" $annot }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .targetRefs }}
+  {{- include "envoy-gateway-policies.targetRefs" .targetRefs | nindent 2 }}
+  {{- else if .targetRef }}
+  {{- include "envoy-gateway-policies.targetRef" .targetRef | nindent 2 }}
+  {{- end }}
+
+  {{- with .wasm }}
+  wasm:
+  {{- range . }}
+    - name: {{ .name }}
+      {{- with .rootID }}
+      rootID: {{ . }}
+      {{- end }}
+      code:
+        type: {{ .code.type }}
+        {{- if eq .code.type "Image" }}
+        image:
+          url: {{ .code.image.url }}
+          {{- with .code.image.pullPolicy }}
+          pullPolicy: {{ . }}
+          {{- end }}
+          {{- with .code.image.pullSecret }}
+          pullSecret:
+            namespace: {{ .namespace }}
+            name: {{ .name }}
+          {{- end }}
+        {{- end }}
+        {{- if eq .code.type "HTTP" }}
+        http:
+          url: {{ .code.http.url }}
+          {{- with .code.http.sha256 }}
+          sha256: {{ . }}
+          {{- end }}
+        {{- end }}
+        {{- if eq .code.type "ConfigMap" }}
+        configMap:
+          name: {{ .code.configMap.name }}
+          {{- with .code.configMap.namespace }}
+          namespace: {{ . }}
+          {{- end }}
+        {{- end }}
+      {{- with .config }}
+      config: |
+        {{- . | nindent 8 }}
+      {{- end }}
+      {{- if hasKey . "failOpen" }}
+      failOpen: {{ .failOpen }}
+      {{- end }}
+  {{- end }}
+  {{- end }}
+
+  {{- with .extProc }}
+  extProc:
+  {{- range . }}
+    - name: {{ .name }}
+      backendRefs:
+        {{- toYaml .backendRefs | nindent 8 }}
+      {{- with .processingMode }}
+      processingMode:
+        {{- with .request }}
+        request:
+          headers: {{ .headers | default "Send" }}
+          body: {{ .body | default "None" }}
+        {{- end }}
+        {{- with .response }}
+        response:
+          headers: {{ .headers | default "Send" }}
+          body: {{ .body | default "None" }}
+        {{- end }}
+      {{- end }}
+      {{- if hasKey . "failOpen" }}
+      failOpen: {{ .failOpen }}
+      {{- end }}
+      {{- with .messageTimeout }}
+      messageTimeout: {{ . }}
+      {{- end }}
+  {{- end }}
+  {{- end }}
+{{- end }}

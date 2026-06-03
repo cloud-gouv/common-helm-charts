@@ -1,0 +1,231 @@
+# =============================================================================
+# Example: Production security stack for a REST API gateway
+# Usage: helm install my-policies ./envoy-gateway-policies -f examples/production-api.yaml
+# =============================================================================
+
+global:
+  labels:
+    environment: production
+    team: platform
+  annotations:
+    managed-by: "gitops"
+
+# ── 1. SecurityPolicy: JWT + CORS + Authorization on the Gateway ──────────────
+securityPolicies:
+  - name: api-gateway-security
+    targetRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: prod-gateway
+
+    jwt:
+      providers:
+        - name: auth0
+          issuer: "https://my-org.auth0.com/"
+          audiences:
+            - "https://api.example.com"
+          remoteJWKS:
+            uri: "https://my-org.auth0.com/.well-known/jwks.json"
+          claimToHeaders:
+            - claim: sub
+              header: x-user-id
+            - claim: https://example.com/roles
+              header: x-user-roles
+          extractFrom:
+            headers:
+              - name: Authorization
+                valuePrefix: "Bearer "
+
+    cors:
+      allowOrigins:
+        - "https://app.example.com"
+        - "https://admin.example.com"
+      allowMethods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      allowHeaders:
+        - Authorization
+        - Content-Type
+        - X-Request-ID
+        - X-Correlation-ID
+      exposeHeaders:
+        - X-Request-ID
+        - X-Correlation-ID
+        - X-RateLimit-Remaining
+      maxAge: "86400"
+      allowCredentials: true
+
+    authorization:
+      defaultAction: Deny
+      rules:
+        - name: allow-authenticated-users
+          action: Allow
+          principal:
+            jwt:
+              provider: auth0
+              claims:
+                - name: iss
+                  values:
+                    - "https://my-org.auth0.com/"
+
+# ── 2. BackendTLSPolicy: mTLS to the backend service ─────────────────────────
+backendTLSPolicies:
+  - name: api-backend-tls
+    targetRef:
+      group: ""
+      kind: Service
+      name: api-service
+      sectionName: "8443"
+    validation:
+      caCertificateRefs:
+        - group: ""
+          kind: ConfigMap
+          name: internal-ca-bundle
+      hostname: api-service.default.svc.cluster.local
+    clientCertificateRef:
+      group: ""
+      kind: Secret
+      name: envoy-client-cert
+
+# ── 3. BackendTrafficPolicy: retries, timeouts, circuit breaker ───────────────
+backendTrafficPolicies:
+  - name: api-backend-traffic
+    targetRef:
+      group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: api-route
+
+    retry:
+      numRetries: 3
+      perRetry:
+        timeout: "10s"
+        backOff:
+          baseInterval: "250ms"
+          maxInterval: "2s"
+      retryOn:
+        triggers:
+          - connect-failure
+          - gateway-error
+          - retriable-4xx
+        httpStatusCodes:
+          - 503
+          - 504
+
+    timeout:
+      http:
+        connectionIdleTimeout: "120s"
+        maxConnectionDuration: "3600s"
+      tcp:
+        connectTimeout: "5s"
+
+    healthCheck:
+      active:
+        type: HTTP
+        http:
+          path: /healthz
+          expectedStatuses:
+            - 200
+        interval: "15s"
+        timeout: "5s"
+        unhealthyThreshold: 3
+        healthyThreshold: 2
+      passive:
+        baseEjectionTime: "30s"
+        interval: "5s"
+        maxEjectionPercent: 50
+        consecutiveGatewayErrors: 5
+        consecutive5XxErrors: 5
+
+    circuitBreaker:
+      maxConnections: 2048
+      maxPendingRequests: 512
+      maxParallelRequests: 1024
+      maxParallelRetries: 10
+
+    rateLimit:
+      type: Global
+      global:
+        rules:
+          - clientSelectors:
+              - headers:
+                  - name: x-user-id
+                    type: Distinct
+            limit:
+              requests: 200
+              unit: Minute
+          - clientSelectors:
+              - sourceCIDR:
+                  value: 0.0.0.0/0
+                  type: Distinct
+            limit:
+              requests: 5000
+              unit: Hour
+
+# ── 4. ClientTrafficPolicy: TLS settings for incoming connections ─────────────
+clientTrafficPolicies:
+  - name: prod-gateway-client-traffic
+    targetRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: prod-gateway
+      sectionName: https
+
+    tls:
+      minVersion: "1.2"
+      maxVersion: "1.3"
+      ciphers:
+        - ECDHE-RSA-AES256-GCM-SHA384
+        - ECDHE-RSA-CHACHA20-POLY1305
+        - ECDHE-RSA-AES128-GCM-SHA256
+      alpnProtocols:
+        - h2
+        - http/1.1
+
+    http2:
+      maxConcurrentStreams: 200
+      initialStreamWindowSize: 65536
+      initialConnectionWindowSize: 1048576
+
+    headers:
+      enableEnvoyHeaders: false
+      xForwardedClientCert:
+        mode: SanitizeSet
+        certDetailsToAdd:
+          - Subject
+          - URI
+
+    timeout:
+      http:
+        requestReceivedTimeout: "60s"
+        idleTimeout: "300s"
+
+    connection:
+      connectionLimit:
+        value: 50000
+        closeDelay: "10s"
+      bufferLimit: "65536"
+
+    clientIPDetection:
+      xForwardedFor:
+        numTrustedHops: 1
+
+# ── 5. BackendLBPolicy: sticky sessions for stateful services ─────────────────
+backendLBPolicies:
+  - name: api-lb-policy
+    targetRef:
+      group: ""
+      kind: Service
+      name: api-service
+
+    sessionPersistence:
+      sessionName: SESSIONID
+      type: Cookie
+      cookieConfig:
+        lifetimeType: Session
+
+    loadBalancer:
+      type: LeastRequest
