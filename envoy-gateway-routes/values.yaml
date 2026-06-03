@@ -94,6 +94,26 @@ gateways: []
 #           - group: gateway.networking.k8s.io
 #             kind: UDPRoute
 
+# Cas une seule classe (défaut EG)
+# gatewayClasses:
+#   - name: eg
+#     controllerName: gateway.envoyproxy.io/gatewayclass-controller
+
+# # Cas deux classes public/privé ou plus
+# gatewayClasses:
+#   - name: public-gateway
+#     description: "Internet-facing gateway"
+#     controllerName: gateway.envoyproxy.io/gatewayclass-controller
+
+#   - name: private-gateway
+#     description: "Internal/admin gateway"
+#     controllerName: gateway.envoyproxy.io/gatewayclass-controller
+#     parametersRef:
+#       kind: EnvoyProxy
+#       name: private-envoy-proxy
+#       namespace: envoy-gateway-system
+
+
 # =============================================================================
 # HTTPRoute
 # L7 HTTP/HTTPS routing with matches, filters, weights, timeouts

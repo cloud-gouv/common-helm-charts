@@ -1,0 +1,35 @@
+{{- range .Values.gatewayClasses }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: {{ .name }}
+  # GatewayClass est une ressource cluster-scoped (pas de namespace)
+  labels:
+    {{- include "envoy-gateway-routes.labels" $ | nindent 4 }}
+    {{- with .labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- $annot := dict "globalAnnotations" $.Values.global.annotations "localAnnotations" .annotations }}
+  {{- with include "envoy-gateway-routes.annotations" $annot }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  # controllerName identifie le controller qui gère cette classe
+  # Valeur par défaut Envoy Gateway : gateway.envoyproxy.io/gatewayclass-controller
+  controllerName: {{ .controllerName | default "gateway.envoyproxy.io/gatewayclass-controller" }}
+  {{- with .parametersRef }}
+  # Référence optionnelle vers une EnvoyProxy pour configuration avancée
+  parametersRef:
+    group: {{ .group | default "gateway.envoyproxy.io" }}
+    kind: {{ .kind | default "EnvoyProxy" }}
+    name: {{ .name }}
+    {{- with .namespace }}
+    namespace: {{ . }}
+    {{- end }}
+  {{- end }}
+  {{- with .description }}
+  description: {{ . | quote }}
+  {{- end }}
+{{- end }}
