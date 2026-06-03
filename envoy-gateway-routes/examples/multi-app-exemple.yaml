@@ -1,0 +1,247 @@
+# =============================================================================
+# Exemple : stack production multi-app
+# - Gateway multi-listeners (HTTP, HTTPS, TCP)
+# - HTTPRoute avec canary, weighted split, header routing, rewrites
+# - GRPCRoute pour un service gRPC
+# - TCPRoute pour PostgreSQL
+# - ReferenceGrant cross-namespace
+# =============================================================================
+
+global:
+  labels:
+    environment: production
+    team: platform
+  annotations:
+    managed-by: gitops
+
+# ── Gateways ──────────────────────────────────────────────────────────────
+gateways:
+  - name: prod-gateway
+    namespace: envoy-gateway-system
+    gatewayClassName: eg
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+      service.beta.kubernetes.io/aws-load-balancer-type: nlb
+      external-dns.alpha.kubernetes.io/hostname: "*.example.com"
+    infrastructure:
+      labels:
+        app: prod-gateway
+    listeners:
+      - name: http
+        protocol: HTTP
+        port: 80
+        allowedRoutes:
+          namespaces:
+            from: All
+      - name: https
+        protocol: HTTPS
+        port: 443
+        tls:
+          mode: Terminate
+          certificateRefs:
+            - kind: Secret
+              name: wildcard-tls
+              namespace: cert-manager
+        allowedRoutes:
+          namespaces:
+            from: All
+      - name: grpc
+        protocol: HTTPS
+        port: 9443
+        tls:
+          mode: Terminate
+          certificateRefs:
+            - kind: Secret
+              name: wildcard-tls
+              namespace: cert-manager
+        allowedRoutes:
+          namespaces:
+            from: All
+          kinds:
+            - group: gateway.networking.k8s.io
+              kind: GRPCRoute
+      - name: postgres
+        protocol: TCP
+        port: 5432
+        allowedRoutes:
+          namespaces:
+            from: Selector
+          kinds:
+            - group: gateway.networking.k8s.io
+              kind: TCPRoute
+
+# ── HTTPRoutes ────────────────────────────────────────────────────────────
+httpRoutes:
+  # Redirect HTTP → HTTPS global
+  - name: global-http-redirect
+    namespace: envoy-gateway-system
+    parentRefs:
+      - name: prod-gateway
+        sectionName: http
+    rules:
+      - filters:
+          - type: RequestRedirect
+            requestRedirect:
+              scheme: https
+              statusCode: 301
+
+  # App principale avec canary 10%
+  - name: myapp-route
+    namespace: myapp
+    annotations:
+      external-dns.alpha.kubernetes.io/ttl: "300"
+    parentRefs:
+      - name: prod-gateway
+        namespace: envoy-gateway-system
+        sectionName: https
+    hostnames:
+      - app.example.com
+    rules:
+      # Canary via header
+      - name: canary-header
+        matches:
+          - headers:
+              - name: x-canary
+                value: "true"
+        backendRefs:
+          - name: myapp-v2
+            port: 8080
+
+      # Canary weighted 10/90
+      - name: weighted-split
+        matches:
+          - path:
+              type: PathPrefix
+              value: /
+        backendRefs:
+          - name: myapp-v2
+            port: 8080
+            weight: 10
+          - name: myapp-v1
+            port: 8080
+            weight: 90
+
+  # API avec rewrite + headers HSTS
+  - name: api-route
+    namespace: myapp
+    parentRefs:
+      - name: prod-gateway
+        namespace: envoy-gateway-system
+        sectionName: https
+    hostnames:
+      - api.example.com
+    rules:
+      - name: v1-compat
+        matches:
+          - path:
+              type: PathPrefix
+              value: /v1
+        filters:
+          - type: URLRewrite
+            urlRewrite:
+              path:
+                type: ReplacePrefixMatch
+                replacePrefixMatch: /api/v1
+          - type: ResponseHeaderModifier
+            responseHeaderModifier:
+              set:
+                - name: Strict-Transport-Security
+                  value: "max-age=31536000; includeSubDomains; preload"
+                - name: X-Content-Type-Options
+                  value: nosniff
+                - name: X-Frame-Options
+                  value: DENY
+              remove:
+                - Server
+                - X-Powered-By
+        backendRefs:
+          - name: api-service
+            port: 8080
+
+      - name: shadow-traffic
+        matches:
+          - path:
+              type: PathPrefix
+              value: /api/v2
+        filters:
+          - type: RequestMirror
+            requestMirror:
+              backendRef:
+                name: api-v3-shadow
+                port: 8080
+              percent: 5
+        backendRefs:
+          - name: api-service
+            port: 8080
+
+# ── GRPCRoute ─────────────────────────────────────────────────────────────
+grpcRoutes:
+  - name: grpc-svc-route
+    namespace: myapp
+    parentRefs:
+      - name: prod-gateway
+        namespace: envoy-gateway-system
+        sectionName: grpc
+    hostnames:
+      - grpc.example.com
+    rules:
+      - name: payment-service
+        matches:
+          - method:
+              type: Exact
+              service: payment.PaymentService
+        backendRefs:
+          - name: payment-grpc
+            port: 9090
+
+      - name: all-other-services
+        backendRefs:
+          - name: grpc-backend
+            port: 9090
+
+# ── TCPRoute ──────────────────────────────────────────────────────────────
+tcpRoutes:
+  - name: postgres-route
+    namespace: databases
+    parentRefs:
+      - name: prod-gateway
+        namespace: envoy-gateway-system
+        sectionName: postgres
+    rules:
+      - backendRefs:
+          - name: postgres-primary
+            port: 5432
+
+# ── ReferenceGrant ────────────────────────────────────────────────────────
+referenceGrants:
+  # Permet aux HTTPRoutes du namespace myapp de cibler des Services ici
+  - name: allow-gateway-refs
+    namespace: myapp
+    from:
+      - group: gateway.networking.k8s.io
+        kind: HTTPRoute
+        namespace: envoy-gateway-system
+      - group: gateway.networking.k8s.io
+        kind: Gateway
+        namespace: envoy-gateway-system
+    to:
+      - group: ""
+        kind: Service
+      - group: ""
+        kind: Secret
+
+  # Permet au Gateway d'accéder au Secret TLS dans cert-manager
+  - name: allow-tls-secret
+    namespace: cert-manager
+    from:
+      - group: gateway.networking.k8s.io
+        kind: Gateway
+        namespace: envoy-gateway-system
+    to:
+      - group: ""
+        kind: Secret
+        name: wildcard-tls
+
+tlsRoutes: []
+udpRoutes: []
+backends: []

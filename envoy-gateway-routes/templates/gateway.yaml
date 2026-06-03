@@ -1,0 +1,80 @@
+{{- range .Values.gateways }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ .name }}
+  namespace: {{ include "envoy-gateway-routes.namespace" (list . $) }}
+  labels:
+    {{- include "envoy-gateway-routes.labels" $ | nindent 4 }}
+    {{- with .labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- $annot := dict "globalAnnotations" $.Values.global.annotations "localAnnotations" .annotations }}
+  {{- with include "envoy-gateway-routes.annotations" $annot }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  gatewayClassName: {{ .gatewayClassName | default "eg" }}
+  {{- with .infrastructure }}
+  infrastructure:
+    {{- with .labels }}
+    labels:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .annotations }}
+    annotations:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .parametersRef }}
+    parametersRef:
+      group: {{ .group }}
+      kind: {{ .kind }}
+      name: {{ .name }}
+    {{- end }}
+  {{- end }}
+  listeners:
+  {{- range .listeners }}
+    - name: {{ .name }}
+      protocol: {{ .protocol }}
+      port: {{ .port }}
+      {{- with .hostname }}
+      hostname: {{ . }}
+      {{- end }}
+      {{- with .allowedRoutes }}
+      allowedRoutes:
+        {{- with .namespaces }}
+        namespaces:
+          from: {{ .from | default "Same" }}
+          {{- if eq (.from | default "Same") "Selector" }}
+          selector:
+            matchLabels:
+              {{- toYaml .selector.matchLabels | nindent 14 }}
+          {{- end }}
+        {{- end }}
+        {{- with .kinds }}
+        kinds:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      {{- end }}
+      {{- if or (eq .protocol "HTTPS") (eq .protocol "TLS") }}
+      {{- with .tls }}
+      tls:
+        mode: {{ .mode | default "Terminate" }}
+        {{- with .certificateRefs }}
+        certificateRefs:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .options }}
+        options:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      {{- end }}
+      {{- end }}
+  {{- end }}
+  {{- with .addresses }}
+  addresses:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

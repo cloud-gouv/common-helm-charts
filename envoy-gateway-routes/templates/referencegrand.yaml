@@ -1,0 +1,35 @@
+{{- range .Values.referenceGrants }}
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: {{ .name }}
+  namespace: {{ include "envoy-gateway-routes.namespace" (list . $) }}
+  labels:
+    {{- include "envoy-gateway-routes.labels" $ | nindent 4 }}
+    {{- with .labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- $annot := dict "globalAnnotations" $.Values.global.annotations "localAnnotations" .annotations }}
+  {{- with include "envoy-gateway-routes.annotations" $annot }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  # Who is ALLOWED to reference resources in this namespace
+  from:
+  {{- range .from }}
+    - group: {{ .group | default "gateway.networking.k8s.io" }}
+      kind: {{ .kind }}
+      namespace: {{ .namespace }}
+  {{- end }}
+  # Which resources in THIS namespace can be referenced
+  to:
+  {{- range .to }}
+    - group: {{ .group | default "" | quote }}
+      kind: {{ .kind }}
+      {{- with .name }}
+      name: {{ . }}
+      {{- end }}
+  {{- end }}
+{{- end }}

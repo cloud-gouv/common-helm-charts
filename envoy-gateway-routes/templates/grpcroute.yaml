@@ -1,0 +1,98 @@
+{{- range .Values.grpcRoutes }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: {{ .name }}
+  namespace: {{ include "envoy-gateway-routes.namespace" (list . $) }}
+  labels:
+    {{- include "envoy-gateway-routes.labels" $ | nindent 4 }}
+    {{- with .labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- $annot := dict "globalAnnotations" $.Values.global.annotations "localAnnotations" .annotations }}
+  {{- with include "envoy-gateway-routes.annotations" $annot }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  parentRefs:
+  {{- range .parentRefs }}
+    {{- include "envoy-gateway-routes.parentRef" . | nindent 4 }}
+  {{- end }}
+  {{- with .hostnames }}
+  hostnames:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+  {{- range .rules }}
+    - {{- with .name }}
+      name: {{ . }}
+      {{- end }}
+      {{- with .matches }}
+      matches:
+      {{- range . }}
+        - {{- with .method }}
+          method:
+            type: {{ .type | default "Exact" }}
+            {{- with .service }}
+            service: {{ . }}
+            {{- end }}
+            {{- with .method }}
+            method: {{ . }}
+            {{- end }}
+          {{- end }}
+          {{- with .headers }}
+          headers:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- end }}
+      {{- end }}
+      {{- with .filters }}
+      filters:
+      {{- range . }}
+        - type: {{ .type }}
+          {{- if eq .type "RequestHeaderModifier" }}
+          requestHeaderModifier:
+            {{- with .requestHeaderModifier.set }}
+            set:
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
+            {{- with .requestHeaderModifier.add }}
+            add:
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
+            {{- with .requestHeaderModifier.remove }}
+            remove:
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          {{- if eq .type "ResponseHeaderModifier" }}
+          responseHeaderModifier:
+            {{- with .responseHeaderModifier.set }}
+            set:
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
+            {{- with .responseHeaderModifier.add }}
+            add:
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
+            {{- with .responseHeaderModifier.remove }}
+            remove:
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          {{- if eq .type "RequestMirror" }}
+          requestMirror:
+            backendRef:
+              name: {{ .requestMirror.backendRef.name }}
+              port: {{ .requestMirror.backendRef.port }}
+          {{- end }}
+      {{- end }}
+      {{- end }}
+      backendRefs:
+      {{- range .backendRefs }}
+        {{- include "envoy-gateway-routes.backendRefs" (list .) | nindent 8 }}
+      {{- end }}
+  {{- end }}
+{{- end }}

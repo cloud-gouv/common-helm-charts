@@ -1,0 +1,90 @@
+{{- range .Values.tcpRoutes }}
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: {{ .name }}
+  namespace: {{ include "envoy-gateway-routes.namespace" (list . $) }}
+  labels:
+    {{- include "envoy-gateway-routes.labels" $ | nindent 4 }}
+    {{- with .labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- $annot := dict "globalAnnotations" $.Values.global.annotations "localAnnotations" .annotations }}
+  {{- with include "envoy-gateway-routes.annotations" $annot }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  parentRefs:
+  {{- range .parentRefs }}
+    {{- include "envoy-gateway-routes.parentRef" . | nindent 4 }}
+  {{- end }}
+  rules:
+  {{- range .rules }}
+    - backendRefs:
+      {{- include "envoy-gateway-routes.backendRefs" .backendRefs | nindent 8 }}
+  {{- end }}
+{{- end }}
+
+{{- range .Values.tlsRoutes }}
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: {{ .name }}
+  namespace: {{ include "envoy-gateway-routes.namespace" (list . $) }}
+  labels:
+    {{- include "envoy-gateway-routes.labels" $ | nindent 4 }}
+    {{- with .labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- $annot := dict "globalAnnotations" $.Values.global.annotations "localAnnotations" .annotations }}
+  {{- with include "envoy-gateway-routes.annotations" $annot }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  parentRefs:
+  {{- range .parentRefs }}
+    {{- include "envoy-gateway-routes.parentRef" . | nindent 4 }}
+  {{- end }}
+  {{- with .hostnames }}
+  hostnames:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+  {{- range .rules }}
+    - backendRefs:
+      {{- include "envoy-gateway-routes.backendRefs" .backendRefs | nindent 8 }}
+  {{- end }}
+{{- end }}
+
+{{- range .Values.udpRoutes }}
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: UDPRoute
+metadata:
+  name: {{ .name }}
+  namespace: {{ include "envoy-gateway-routes.namespace" (list . $) }}
+  labels:
+    {{- include "envoy-gateway-routes.labels" $ | nindent 4 }}
+    {{- with .labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- $annot := dict "globalAnnotations" $.Values.global.annotations "localAnnotations" .annotations }}
+  {{- with include "envoy-gateway-routes.annotations" $annot }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  parentRefs:
+  {{- range .parentRefs }}
+    {{- include "envoy-gateway-routes.parentRef" . | nindent 4 }}
+  {{- end }}
+  rules:
+  {{- range .rules }}
+    - backendRefs:
+      {{- include "envoy-gateway-routes.backendRefs" .backendRefs | nindent 8 }}
+  {{- end }}
+{{- end }}

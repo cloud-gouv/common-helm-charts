@@ -1,0 +1,483 @@
+# =============================================================================
+# Envoy Gateway Routes — Helm Chart Values
+# Docs: https://gateway.envoyproxy.io/docs/
+# Gateway API spec: https://gateway-api.sigs.k8s.io/
+# =============================================================================
+
+global:
+  namespace: ""
+  labels: {}
+  annotations: {}
+
+# =============================================================================
+# Gateway
+# Entry point: defines listeners (HTTP, HTTPS, TCP, TLS, UDP)
+# =============================================================================
+gateways: []
+# - name: my-gateway
+#   namespace: ""
+#   labels: {}
+#   annotations:
+#     cert-manager.io/cluster-issuer: letsencrypt-prod
+#
+#   # GatewayClass — "eg" is the default Envoy Gateway class name
+#   gatewayClassName: eg
+#
+#   # Optional: labels/annotations pushed to the generated Envoy Deployment/Service
+#   infrastructure:
+#     labels:
+#       app: my-gateway
+#     annotations:
+#       service.beta.kubernetes.io/aws-load-balancer-type: nlb
+#
+#   listeners:
+#     # ── Plain HTTP listener ────────────────────────────────────────────────
+#     - name: http
+#       protocol: HTTP
+#       port: 80
+#       hostname: "*.example.com"          # optional wildcard
+#       allowedRoutes:
+#         namespaces:
+#           from: All                      # Same | All | Selector
+#         kinds:
+#           - group: gateway.networking.k8s.io
+#             kind: HTTPRoute
+#
+#     # ── HTTPS listener (TLS Terminate) ────────────────────────────────────
+#     - name: https
+#       protocol: HTTPS
+#       port: 443
+#       hostname: "*.example.com"
+#       tls:
+#         mode: Terminate                  # Terminate | Passthrough
+#         certificateRefs:
+#           - group: ""
+#             kind: Secret
+#             name: wildcard-tls-secret
+#             namespace: cert-manager
+#       allowedRoutes:
+#         namespaces:
+#           from: All
+#
+#     # ── TLS Passthrough listener ──────────────────────────────────────────
+#     - name: tls-passthrough
+#       protocol: TLS
+#       port: 8443
+#       tls:
+#         mode: Passthrough
+#       allowedRoutes:
+#         namespaces:
+#           from: All
+#         kinds:
+#           - group: gateway.networking.k8s.io
+#             kind: TLSRoute
+#
+#     # ── TCP listener ──────────────────────────────────────────────────────
+#     - name: tcp-5432
+#       protocol: TCP
+#       port: 5432
+#       allowedRoutes:
+#         namespaces:
+#           from: Same
+#         kinds:
+#           - group: gateway.networking.k8s.io
+#             kind: TCPRoute
+#
+#     # ── UDP listener ──────────────────────────────────────────────────────
+#     - name: udp-53
+#       protocol: UDP
+#       port: 53
+#       allowedRoutes:
+#         namespaces:
+#           from: Same
+#         kinds:
+#           - group: gateway.networking.k8s.io
+#             kind: UDPRoute
+
+# =============================================================================
+# HTTPRoute
+# L7 HTTP/HTTPS routing with matches, filters, weights, timeouts
+# =============================================================================
+httpRoutes: []
+# - name: my-app-route
+#   namespace: ""
+#   labels: {}
+#   annotations:
+#     external-dns.alpha.kubernetes.io/ttl: "300"
+#
+#   # Which Gateway listener this route attaches to
+#   parentRefs:
+#     - name: my-gateway
+#       namespace: envoy-gateway           # omit if same namespace
+#       sectionName: https                 # omit to attach to all listeners
+#
+#   hostnames:
+#     - app.example.com
+#
+#   rules:
+#     # ── Simple path prefix → single backend ───────────────────────────────
+#     - name: default
+#       matches:
+#         - path:
+#             type: PathPrefix             # PathPrefix | Exact | RegularExpression
+#             value: /
+#       backendRefs:
+#         - name: my-app-service
+#           port: 8080
+#           weight: 100                    # default: 1
+#
+#     # ── Exact path ────────────────────────────────────────────────────────
+#     - name: api-exact
+#       matches:
+#         - path:
+#             type: Exact
+#             value: /api/v1/status
+#       backendRefs:
+#         - name: status-service
+#           port: 8080
+#
+#     # ── Regex path (Envoy Gateway extension) ──────────────────────────────
+#     - name: api-regex
+#       matches:
+#         - path:
+#             type: RegularExpression
+#             value: "^/api/v[0-9]+/.*"
+#       backendRefs:
+#         - name: api-service
+#           port: 8080
+#
+#     # ── Header-based routing ──────────────────────────────────────────────
+#     - name: canary
+#       matches:
+#         - headers:
+#             - name: x-canary
+#               value: "true"
+#               type: Exact
+#       backendRefs:
+#         - name: canary-service
+#           port: 8080
+#
+#     # ── Method-based routing ──────────────────────────────────────────────
+#     - name: write-ops
+#       matches:
+#         - method: POST
+#           path:
+#             type: PathPrefix
+#             value: /api
+#         - method: PUT
+#           path:
+#             type: PathPrefix
+#             value: /api
+#         - method: DELETE
+#           path:
+#             type: PathPrefix
+#             value: /api
+#       backendRefs:
+#         - name: write-service
+#           port: 8080
+#
+#     # ── Query param routing ───────────────────────────────────────────────
+#     - name: legacy-api
+#       matches:
+#         - queryParams:
+#             - name: version
+#               value: "v1"
+#       backendRefs:
+#         - name: legacy-service
+#           port: 8080
+#
+#     # ── Traffic splitting (weighted) ──────────────────────────────────────
+#     - name: blue-green
+#       matches:
+#         - path:
+#             type: PathPrefix
+#             value: /
+#       backendRefs:
+#         - name: app-v2
+#           port: 8080
+#           weight: 80
+#         - name: app-v1
+#           port: 8080
+#           weight: 20
+#
+#     # ── URL rewrite ───────────────────────────────────────────────────────
+#     - name: rewrite-prefix
+#       matches:
+#         - path:
+#             type: PathPrefix
+#             value: /old-api
+#       filters:
+#         - type: URLRewrite
+#           urlRewrite:
+#             path:
+#               type: ReplacePrefixMatch
+#               replacePrefixMatch: /new-api
+#       backendRefs:
+#         - name: api-service
+#           port: 8080
+#
+#     # ── Request redirect (301/302) ────────────────────────────────────────
+#     - name: redirect-to-https
+#       matches:
+#         - path:
+#             type: PathPrefix
+#             value: /
+#       filters:
+#         - type: RequestRedirect
+#           requestRedirect:
+#             scheme: https
+#             statusCode: 301
+#
+#     # ── Redirect with path change ─────────────────────────────────────────
+#     - name: redirect-renamed-path
+#       matches:
+#         - path:
+#             type: PathPrefix
+#             value: /legacy
+#       filters:
+#         - type: RequestRedirect
+#           requestRedirect:
+#             path:
+#               type: ReplacePrefixMatch
+#               replacePrefixMatch: /modern
+#             statusCode: 301
+#
+#     # ── Add/remove request headers ────────────────────────────────────────
+#     - name: header-manipulation
+#       matches:
+#         - path:
+#             type: PathPrefix
+#             value: /
+#       filters:
+#         - type: RequestHeaderModifier
+#           requestHeaderModifier:
+#             set:
+#               - name: x-forwarded-proto
+#                 value: https
+#             add:
+#               - name: x-request-source
+#                 value: envoy-gateway
+#             remove:
+#               - x-internal-token
+#         - type: ResponseHeaderModifier
+#           responseHeaderModifier:
+#             set:
+#               - name: Strict-Transport-Security
+#                 value: "max-age=31536000; includeSubDomains"
+#               - name: X-Content-Type-Options
+#                 value: nosniff
+#             remove:
+#               - Server
+#               - X-Powered-By
+#       backendRefs:
+#         - name: my-service
+#           port: 8080
+#
+#     # ── Request mirror (shadow traffic) ──────────────────────────────────
+#     - name: mirror-to-shadow
+#       matches:
+#         - path:
+#             type: PathPrefix
+#             value: /
+#       filters:
+#         - type: RequestMirror
+#           requestMirror:
+#             backendRef:
+#               name: shadow-service
+#               port: 8080
+#             percent: 10
+#       backendRefs:
+#         - name: prod-service
+#           port: 8080
+#
+#     # ── Cross-namespace backend (requires ReferenceGrant) ─────────────────
+#     - name: cross-ns-backend
+#       matches:
+#         - path:
+#             type: PathPrefix
+#             value: /external
+#       backendRefs:
+#         - name: remote-service
+#           namespace: other-namespace
+#           port: 8080
+#
+#     # ── Rule-level timeouts ───────────────────────────────────────────────
+#     - name: with-timeouts
+#       matches:
+#         - path:
+#             type: PathPrefix
+#             value: /slow
+#       timeouts:
+#         request: "30s"
+#         backendRequest: "25s"
+#       backendRefs:
+#         - name: slow-service
+#           port: 8080
+#
+#     # ── Session persistence (cookie) ──────────────────────────────────────
+#     - name: sticky
+#       matches:
+#         - path:
+#             type: PathPrefix
+#             value: /app
+#       sessionPersistence:
+#         sessionName: SESSIONID
+#         type: Cookie
+#         cookieConfig:
+#           lifetimeType: Session
+#       backendRefs:
+#         - name: stateful-service
+#           port: 8080
+#
+# # ── HTTP → HTTPS redirect route (dedicated) ───────────────────────────────
+# - name: http-to-https-redirect
+#   parentRefs:
+#     - name: my-gateway
+#       sectionName: http
+#   hostnames:
+#     - app.example.com
+#   rules:
+#     - filters:
+#         - type: RequestRedirect
+#           requestRedirect:
+#             scheme: https
+#             statusCode: 301
+
+# =============================================================================
+# GRPCRoute
+# gRPC service routing (Gateway API v1)
+# =============================================================================
+grpcRoutes: []
+# - name: my-grpc-route
+#   namespace: ""
+#   parentRefs:
+#     - name: my-gateway
+#       sectionName: https
+#   hostnames:
+#     - grpc.example.com
+#   rules:
+#     # Route all methods of a service
+#     - name: all-methods
+#       matches:
+#         - method:
+#             type: Exact
+#             service: mypackage.MyService
+#       backendRefs:
+#         - name: grpc-service
+#           port: 9090
+#
+#     # Route a specific method
+#     - name: specific-method
+#       matches:
+#         - method:
+#             type: Exact
+#             service: mypackage.MyService
+#             method: MyMethod
+#       backendRefs:
+#         - name: grpc-service
+#           port: 9090
+#
+#     # Header-based gRPC routing
+#     - name: header-route
+#       matches:
+#         - headers:
+#             - name: x-version
+#               value: v2
+#       backendRefs:
+#         - name: grpc-service-v2
+#           port: 9090
+
+# =============================================================================
+# TCPRoute
+# L4 TCP pass-through routing (e.g. databases, raw TCP services)
+# =============================================================================
+tcpRoutes: []
+# - name: postgres-route
+#   namespace: ""
+#   parentRefs:
+#     - name: my-gateway
+#       sectionName: tcp-5432
+#   rules:
+#     - backendRefs:
+#         - name: postgres-service
+#           port: 5432
+
+# =============================================================================
+# TLSRoute
+# TLS pass-through routing (SNI-based, no termination)
+# =============================================================================
+tlsRoutes: []
+# - name: my-tls-route
+#   namespace: ""
+#   parentRefs:
+#     - name: my-gateway
+#       sectionName: tls-passthrough
+#   hostnames:
+#     - secure.example.com
+#   rules:
+#     - backendRefs:
+#         - name: tls-service
+#           port: 8443
+
+# =============================================================================
+# UDPRoute
+# L4 UDP routing (e.g. DNS, QUIC)
+# =============================================================================
+udpRoutes: []
+# - name: dns-route
+#   namespace: ""
+#   parentRefs:
+#     - name: my-gateway
+#       sectionName: udp-53
+#   rules:
+#     - backendRefs:
+#         - name: coredns
+#           port: 53
+
+# =============================================================================
+# ReferenceGrant
+# Authorise cross-namespace references (route → service in another namespace)
+# =============================================================================
+referenceGrants: []
+# - name: allow-gateway-to-app
+#   namespace: app-namespace            # namespace of the TARGET resources
+#   from:
+#     # Allow HTTPRoutes in gateway-namespace to reference Services here
+#     - group: gateway.networking.k8s.io
+#       kind: HTTPRoute
+#       namespace: gateway-namespace
+#     # Allow the Gateway itself (for TLS secrets)
+#     - group: gateway.networking.k8s.io
+#       kind: Gateway
+#       namespace: envoy-gateway-system
+#   to:
+#     - group: ""
+#       kind: Service                   # allow all Services in this namespace
+#     - group: ""
+#       kind: Secret
+#       name: my-tls-secret             # restrict to a specific secret
+
+# =============================================================================
+# Backend (Envoy Gateway extension)
+# Reference external endpoints by FQDN or IP (outside Kubernetes)
+# =============================================================================
+backends: []
+# - name: external-api
+#   namespace: ""
+#   endpoints:
+#     - fqdn:
+#         hostname: api.third-party.com
+#         port: 443
+#   appProtocols:
+#     - gateway.envoyproxy.io/h2             # HTTP/2 (gRPC)
+#     # - gateway.envoyproxy.io/ws           # WebSocket
+#   fallback: false
+#
+# - name: on-prem-db
+#   endpoints:
+#     - ip:
+#         address: "192.168.1.100"
+#         port: 5432
+#     - ip:
+#         address: "192.168.1.101"
+#         port: 5432

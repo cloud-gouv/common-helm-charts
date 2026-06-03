@@ -1,0 +1,167 @@
+# =============================================================================
+# Exemple : ArgoCD via Envoy Gateway
+# Équivalent exact des annotations nginx-ingress :
+#
+#   cert-manager.io/cluster-issuer: letsencrypt-staging
+#   nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+#   nginx.ingress.kubernetes.io/ssl-redirect: "true"
+#   nginx.ingress.kubernetes.io/whitelist-source-range: 0.0.0.0/0
+#   nginx.ingress.kubernetes.io/auth-type: basic
+#   nginx.ingress.kubernetes.io/auth-secret: ingress-nginx/argocd-basic-auth
+#   nginx.ingress.kubernetes.io/auth-realm: "Authentication Required"
+#   nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+#   external-dns.alpha.kubernetes.io/ingress-hostname-source: defined-hosts-only
+#   external-dns.alpha.kubernetes.io/ttl: "10"
+#
+# Usage:
+#   helm install argocd-gateway ./envoy-gateway-routes \
+#     -n argocd --create-namespace \
+#     -f examples/argocd.yaml
+# =============================================================================
+
+global:
+  labels:
+    app.kubernetes.io/component: argocd-ingress
+    environment: staging
+
+# ── 1. Gateway ─────────────────────────────────────────────────────────────
+# Deux listeners : HTTP (80) pour redirect, HTTPS (443) pour le trafic réel
+gateways:
+  - name: argocd-gateway
+    namespace: argocd
+    gatewayClassName: eg
+
+    # cert-manager gère le TLS directement sur le Gateway (Gateway API natif)
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-staging
+
+    listeners:
+      # Listener HTTP → uniquement pour la redirection 301 vers HTTPS
+      # Équivalent : force-ssl-redirect + ssl-redirect
+      - name: http
+        protocol: HTTP
+        port: 80
+        hostname: argocd.example.com
+        allowedRoutes:
+          namespaces:
+            from: Same
+
+      # Listener HTTPS → trafic ArgoCD réel
+      - name: https
+        protocol: HTTPS
+        port: 443
+        hostname: argocd.example.com
+        tls:
+          mode: Terminate
+          certificateRefs:
+            - group: ""
+              kind: Secret
+              name: argocd-tls            # généré par cert-manager
+        allowedRoutes:
+          namespaces:
+            from: Same
+
+# ── 2. HTTPRoutes ──────────────────────────────────────────────────────────
+httpRoutes:
+  # ── Route HTTP → redirect 301 vers HTTPS ────────────────────────────────
+  # Équivalent : force-ssl-redirect: "true" / ssl-redirect: "true"
+  - name: argocd-http-redirect
+    namespace: argocd
+    annotations:
+      # external-dns sur le listener HTTP aussi pour la résolution DNS
+      external-dns.alpha.kubernetes.io/ingress-hostname-source: defined-hosts-only
+      external-dns.alpha.kubernetes.io/ttl: "10"
+
+    parentRefs:
+      - name: argocd-gateway
+        namespace: argocd
+        sectionName: http               # uniquement le listener port 80
+
+    hostnames:
+      - argocd.example.com
+
+    rules:
+      - name: redirect-to-https
+        filters:
+          - type: RequestRedirect
+            requestRedirect:
+              scheme: https
+              statusCode: 301
+
+  # ── Route HTTPS → ArgoCD server ──────────────────────────────────────────
+  - name: argocd-https-route
+    namespace: argocd
+    annotations:
+      external-dns.alpha.kubernetes.io/ingress-hostname-source: defined-hosts-only
+      external-dns.alpha.kubernetes.io/ttl: "10"
+
+    parentRefs:
+      - name: argocd-gateway
+        namespace: argocd
+        sectionName: https              # uniquement le listener port 443
+
+    hostnames:
+      - argocd.example.com
+
+    rules:
+      # UI + API ArgoCD
+      # Équivalent : backend-protocol HTTP (ArgoCD server en HTTP plain)
+      - name: argocd-server
+        matches:
+          - path:
+              type: PathPrefix
+              value: /
+        backendRefs:
+          - name: argocd-server
+            port: 80                    # argocd-server écoute en HTTP sur 80
+
+  # ── Route gRPC pour la CLI ArgoCD (argocd CLI utilise gRPC) ──────────────
+  # Note : les annotations nginx ne gèrent pas ce cas — c'est un bonus
+  - name: argocd-grpc-route
+    namespace: argocd
+    parentRefs:
+      - name: argocd-gateway
+        namespace: argocd
+        sectionName: https
+
+    hostnames:
+      - argocd.example.com
+
+    rules:
+      - name: grpc-api
+        matches:
+          - headers:
+              - name: Content-Type
+                value: application/grpc
+                type: Exact
+        backendRefs:
+          - name: argocd-server
+            port: 8080                  # port gRPC d'ArgoCD
+
+# ── 3. ReferenceGrant ──────────────────────────────────────────────────────
+# Non nécessaire ici (Gateway et Routes dans le même namespace "argocd")
+# À activer si le Gateway est dans un namespace différent (ex: envoy-gateway-system)
+#
+# referenceGrants:
+#   - name: allow-gateway-to-argocd
+#     namespace: argocd
+#     from:
+#       - group: gateway.networking.k8s.io
+#         kind: Gateway
+#         namespace: envoy-gateway-system
+#       - group: gateway.networking.k8s.io
+#         kind: HTTPRoute
+#         namespace: envoy-gateway-system
+#     to:
+#       - group: ""
+#         kind: Secret
+#         name: argocd-tls
+#       - group: ""
+#         kind: Service
+
+referenceGrants: []
+grpcRoutes: []
+tcpRoutes: []
+tlsRoutes: []
+udpRoutes: []
+backends: []

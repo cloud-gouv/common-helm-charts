@@ -1,0 +1,24 @@
+apiVersion: v2
+name: envoy-gateway-routes
+description: |
+  Helm chart for managing Envoy Gateway API routing resources:
+  Gateway, HTTPRoute, GRPCRoute, TCPRoute, TLSRoute, UDPRoute,
+  ReferenceGrant and Backend (multi-cluster).
+type: application
+version: 1.0.0
+appVersion: "1.2.0"
+keywords:
+  - envoy
+  - gateway
+  - httproute
+  - grpcroute
+  - kubernetes
+  - networking
+home: https://gateway.envoyproxy.io
+sources:
+  - https://github.com/envoyproxy/gateway
+maintainers:
+  - name: platform-team
+    email: platform@example.com
+annotations:
+  category: Networking

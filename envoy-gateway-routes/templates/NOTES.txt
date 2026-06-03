@@ -1,0 +1,29 @@
+╔══════════════════════════════════════════════════════════════╗
+║         Envoy Gateway Routes — Installed!                    ║
+╚══════════════════════════════════════════════════════════════╝
+
+Release  : {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+Chart    : {{ .Chart.Name }}-{{ .Chart.Version }}
+
+Resources deployed:
+  Gateway          : {{ len .Values.gateways }}
+  HTTPRoute        : {{ len .Values.httpRoutes }}
+  GRPCRoute        : {{ len .Values.grpcRoutes }}
+  TCPRoute         : {{ len .Values.tcpRoutes }}
+  TLSRoute         : {{ len .Values.tlsRoutes }}
+  UDPRoute         : {{ len .Values.udpRoutes }}
+  ReferenceGrant   : {{ len .Values.referenceGrants }}
+  Backend          : {{ len .Values.backends }}
+
+Verify status:
+  kubectl get gateway,httproute,grpcroute -n {{ .Release.Namespace }}
+  kubectl get referencegrant            -n {{ .Release.Namespace }}
+
+Check Gateway is ready (PROGRAMMED = True):
+  kubectl describe gateway -n {{ .Release.Namespace }}
+
+Check route parents accepted:
+  kubectl get httproute -n {{ .Release.Namespace }} -o wide
+
+Docs: https://gateway.envoyproxy.io/docs/
