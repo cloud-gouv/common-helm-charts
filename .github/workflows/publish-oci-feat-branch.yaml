@@ -1,6 +1,9 @@
 name: Publish Helm charts to GHCR (OCI) - manual test builds
 
 on:
+  push:
+    branches:
+      - 'feat/**'
   workflow_dispatch:
     inputs:
       version:
