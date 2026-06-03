@@ -33,7 +33,9 @@ args: {}
 envFrom: {}
 env: {}
 
-secretName: rclone-config
+secret: 
+  create: true
+  secretName: rclone-config
 config: |
   [outscale-oos]
   type = s3
