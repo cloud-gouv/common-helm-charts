@@ -1,0 +1,192 @@
+name: Publish Helm charts to GHCR (OCI) - test builds
+
+# Ne publie jamais l'integralite des charts. Les charts a publier sont detectes
+# automatiquement a partir des fichiers modifies; l'input 'charts' ne sert qu'a
+# forcer une liste precise quand la detection ne convient pas.
+
+on:
+  push:
+    branches:
+      - 'feat/**'
+      - 'fix/**'
+
+  workflow_dispatch:
+    inputs:
+      charts:
+        description: 'Forcer les charts à publier, séparés par des virgules. Laisser vide pour détecter automatiquement les charts modifiés.'
+        required: false
+        default: ''
+
+      version:
+        description: 'Version test forcée (ex: 1.2.3-test). Laisser vide pour générer 0.0.0-<branche>.g<sha>'
+        required: false
+        default: ''
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          # historique complet: necessaire pour differ le push contre sa base
+          fetch-depth: 0
+
+      - name: Install Helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+
+      - name: Determine charts to publish
+        id: select
+        shell: bash
+        env:
+          INPUT_CHARTS: ${{ github.event.inputs.charts }}
+          BEFORE: ${{ github.event.before }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+
+          # charts reellement presents dans le repo
+          available="$(for c in */Chart.yaml; do basename "$(dirname "$c")"; done | sort -u)"
+
+          if [ -n "${INPUT_CHARTS:-}" ]; then
+            # liste forcee explicitement: on ne detecte rien
+            echo "Selection forcee via l'input 'charts'"
+            selection="$(printf '%s' "$INPUT_CHARTS" | tr ', ' '\n\n' | sed '/^$/d' | sort -u)"
+
+            # un nom invalide doit echouer bruyamment, pas publier silencieusement autre chose
+            unknown="$(comm -23 <(printf '%s\n' "$selection") <(printf '%s\n' "$available") || true)"
+            if [ -n "$unknown" ]; then
+              echo "::error::Chart(s) inconnu(s): $(tr '\n' ' ' <<<"$unknown")"
+              echo "Charts disponibles: $(tr '\n' ' ' <<<"$available")"
+              exit 1
+            fi
+          else
+            # detection automatique: on ne publie que les charts touches par les commits
+            echo "Detection automatique des charts modifies"
+
+            # 'before' n'existe que sur push; sur dispatch on tombe direct sur le merge-base
+            base="${BEFORE:-}"
+            if [ -z "$base" ] \
+              || [ "$base" = "0000000000000000000000000000000000000000" ] \
+              || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+              # branche nouvellement poussee: comparer a sa base sur la branche par defaut
+              git fetch --no-tags origin "$DEFAULT_BRANCH" >/dev/null 2>&1 || true
+              base="$(git merge-base FETCH_HEAD HEAD 2>/dev/null || true)"
+            fi
+
+            if [ -z "$base" ]; then
+              if git rev-parse -q --verify HEAD~1 >/dev/null; then
+                base="$(git rev-parse HEAD~1)"
+              else
+                echo "::warning::Impossible de determiner une base de comparaison, rien a publier"
+                echo "charts=" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+            fi
+
+            echo "Diff: ${base}..HEAD"
+            selection="$(git diff --name-only "$base" HEAD \
+              | awk -F/ 'NF>1 {print $1}' \
+              | sort -u \
+              | while read -r d; do [ -f "$d/Chart.yaml" ] && echo "$d"; done)"
+
+            if [ -z "$selection" ]; then
+              echo "Aucun chart modifie, rien a publier"
+              echo "Relancer avec l'input 'charts' pour forcer une publication"
+              echo "charts=" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+
+          echo "Charts a publier:"
+          sed 's/^/  - /' <<<"$selection"
+          echo "charts=$(tr '\n' ' ' <<<"$selection" | sed 's/ *$//')" >> "$GITHUB_OUTPUT"
+
+      # Fournit GITHUB_REF_NAME_SLUG_URL et GITHUB_SHA_SHORT.
+      # Variante _SLUG_URL obligatoire: _SLUG conserve '.' et '_', interdits en prerelease SemVer.
+      - name: Slugify branch name
+        if: steps.select.outputs.charts != ''
+        uses: rlespinasse/github-slug-action@ef93b2ea4b6405d06fd8684fc3ff795d262ecae8 # v5.7.0
+        with:
+          slug-maxlength: 40
+
+      - name: Compute test version
+        id: version
+        if: steps.select.outputs.charts != ''
+        shell: bash
+        env:
+          FORCED_VERSION: ${{ github.event.inputs.version }}
+          SLUG: ${{ env.GITHUB_REF_NAME_SLUG_URL }}
+          SHA_SHORT: ${{ env.GITHUB_SHA_SHORT }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "${FORCED_VERSION:-}" ]; then
+            version="$FORCED_VERSION"
+          else
+            slug="$SLUG"
+
+            # SemVer interdit les zeros en tete sur un identifiant purement numerique:
+            # l'action ne couvre pas ce cas, on le corrige ici
+            case "$slug" in
+              '') slug="branch" ;;
+              *[!0-9]*) ;;
+              *) slug="b${slug}" ;;
+            esac
+
+            # le prefixe 'g' garantit un identifiant alphanumerique meme si le sha est tout chiffres
+            version="0.0.0-${slug}.g${SHA_SHORT}"
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Version test: $version"
+
+      - name: Login to GHCR
+        if: steps.select.outputs.charts != ''
+        run: |
+          echo "${{ github.token }}" \
+            | helm registry login ghcr.io \
+                -u "${{ github.actor }}" \
+                --password-stdin
+
+      - name: Build and push charts
+        if: steps.select.outputs.charts != ''
+        shell: bash
+        env:
+          OWNER: ${{ github.repository_owner }}
+          VERSION: ${{ steps.version.outputs.version }}
+          CHARTS: ${{ steps.select.outputs.charts }}
+        run: |
+          set -euo pipefail
+
+          repo="oci://ghcr.io/${OWNER,,}/common-helm-charts"
+
+          mkdir -p dist
+
+          echo "Version: $VERSION"
+
+          for name in $CHARTS; do
+            echo "Packaging $name @ $VERSION"
+            helm package "$name" --version "$VERSION" -d dist
+          done
+
+          for name in $CHARTS; do
+            pkg="dist/${name}-${VERSION}.tgz"
+            echo "Pushing $pkg"
+            helm push "$pkg" "$repo"
+          done
+
+          {
+            echo "### Charts de test publies"
+            echo ""
+            echo "Version: \`$VERSION\`"
+            echo ""
+            for name in $CHARTS; do
+              echo "- \`${repo#oci://}/${name}\`"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"

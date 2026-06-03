@@ -1,0 +1,269 @@
+# =============================================================================
+# Envoy Gateway Routes — Helm Chart Values
+# Docs: https://gateway.envoyproxy.io/docs/
+# Gateway API spec: https://gateway-api.sigs.k8s.io/
+# =============================================================================
+
+global:
+  namespace: ""
+  labels: {}
+  annotations: {}
+
+# =============================================================================
+# GatewayClass
+# Cluster-scoped resource — définit quel controller gère les Gateways.
+# En général une seule GatewayClass par cluster (ou une par "profil" réseau).
+# ⚠️  Ressource cluster-scoped : pas de namespace.
+# =============================================================================
+gatewayClasses: []
+# - name: eg                          # nom par défaut Envoy Gateway
+#   labels: {}
+#   annotations: {}
+#   description: "Default Envoy Gateway class"
+#
+#   # Controller qui prend en charge cette classe
+#   # Valeur par défaut EG (ne pas changer sauf custom controller)
+#   controllerName: gateway.envoyproxy.io/gatewayclass-controller
+#
+#   # Référence optionnelle vers une EnvoyProxy (configuration avancée du proxy)
+#   # Permet de personnaliser : provider, logging, telemetry, bootstrap, etc.
+#   parametersRef:
+#     group: gateway.envoyproxy.io
+#     kind: EnvoyProxy
+#     name: my-envoy-proxy-config
+#     namespace: envoy-gateway-system
+#
+# # Exemple : deux classes pour séparer trafic public / interne
+# - name: public-gateway
+#   description: "Internet-facing gateway"
+#   controllerName: gateway.envoyproxy.io/gatewayclass-controller
+#   parametersRef:
+#     group: gateway.envoyproxy.io
+#     kind: EnvoyProxy
+#     name: public-envoy-proxy
+#     namespace: envoy-gateway-system
+#
+# - name: private-gateway
+#   description: "Internal/admin gateway"
+#   controllerName: gateway.envoyproxy.io/gatewayclass-controller
+#   parametersRef:
+#     group: gateway.envoyproxy.io
+#     kind: EnvoyProxy
+#     name: private-envoy-proxy
+#     namespace: envoy-gateway-system
+
+# =============================================================================
+# Gateway
+# Entry point: defines listeners (HTTP, HTTPS, TCP, TLS, UDP)
+# =============================================================================
+gateways: []
+# - name: my-gateway
+#   namespace: ""
+#   labels: {}
+#   annotations:
+#     cert-manager.io/cluster-issuer: letsencrypt-prod
+#
+#   # GatewayClass — "eg" is the default Envoy Gateway class name
+#   gatewayClassName: eg
+#
+#   # Optional: labels/annotations pushed to the generated Envoy Deployment/Service
+#   infrastructure:
+#     labels:
+#       app: my-gateway
+#     annotations:
+#       service.beta.kubernetes.io/aws-load-balancer-type: nlb
+#
+#   listeners:
+#     # ── Plain HTTP listener ────────────────────────────────────────────────
+#     - name: http
+#       protocol: HTTP
+#       port: 80
+#       hostname: "*.example.com"          # optional wildcard
+#       allowedRoutes:
+#         namespaces:
+#           from: All                      # Same | All | Selector
+#         kinds:
+#           - group: gateway.networking.k8s.io
+#             kind: HTTPRoute
+#
+#     # ── HTTPS listener (TLS Terminate) ────────────────────────────────────
+#     - name: https
+#       protocol: HTTPS
+#       port: 443
+#       hostname: "*.example.com"
+#       tls:
+#         mode: Terminate                  # Terminate | Passthrough
+#         certificateRefs:
+#           - group: ""
+#             kind: Secret
+#             name: wildcard-tls-secret
+#             namespace: cert-manager
+#       allowedRoutes:
+#         namespaces:
+#           from: All
+#
+#     # ── TLS Passthrough listener ──────────────────────────────────────────
+#     - name: tls-passthrough
+#       protocol: TLS
+#       port: 8443
+#       tls:
+#         mode: Passthrough
+#       allowedRoutes:
+#         namespaces:
+#           from: All
+#         kinds:
+#           - group: gateway.networking.k8s.io
+#             kind: TLSRoute
+#
+#     # ── TCP listener ──────────────────────────────────────────────────────
+#     - name: tcp-5432
+#       protocol: TCP
+#       port: 5432
+#       allowedRoutes:
+#         namespaces:
+#           from: Same
+#         kinds:
+#           - group: gateway.networking.k8s.io
+#             kind: TCPRoute
+#
+#     # ── UDP listener ──────────────────────────────────────────────────────
+#     - name: udp-53
+#       protocol: UDP
+#       port: 53
+#       allowedRoutes:
+#         namespaces:
+#           from: Same
+#         kinds:
+#           - group: gateway.networking.k8s.io
+#             kind: UDPRoute
+
+# =============================================================================
+# EnvoyProxy
+# Configuration avancée du data plane Envoy (infrastructure du/des Gateway(s)).
+# Référencée depuis une GatewayClass (`parametersRef`) ou depuis un Gateway
+# (`infrastructure.parametersRef`, scope namespace).
+# Docs: https://gateway.envoyproxy.io/docs/tasks/operations/customize-envoyproxy/
+# =============================================================================
+envoyProxies: []
+# - name: platform-gateway-proxy
+#   namespace: envoy-gateway-system
+#   labels: {}
+#   annotations: {}
+#
+#   # ── Provider : comment Envoy est déployé ────────────────────────────────
+#   provider:
+#     type: Kubernetes
+#     kubernetes:
+#       # Deployment (défaut) OU DaemonSet — les deux sont exclusifs.
+#       # `envoyDaemonSet: {}` suffit pour basculer en DaemonSet par défaut.
+#       envoyDaemonSet:
+#         pod:
+#           volumes:
+#             - name: dynamic-modules
+#               image:
+#                 reference: ghcr.io/tetratelabs/built-on-envoy/composer:1.0.0
+#                 pullPolicy: IfNotPresent
+#         container:
+#           env:
+#             - name: GODEBUG
+#               value: "cgocheck=0"
+#           volumeMounts:
+#             - name: dynamic-modules
+#               mountPath: /etc/envoy/dynamic-modules
+#               readOnly: true
+#
+#       # envoyDeployment:
+#       #   replicas: 2
+#       #   pod:
+#       #     annotations:
+#       #       prometheus.io/scrape: "true"
+#       #     topologySpreadConstraints: []
+#       #   container:
+#       #     resources:
+#       #       requests: { cpu: 100m, memory: 512Mi }
+#       #       limits:   { memory: 1Gi }
+#
+#       # Service exposant Envoy : annotations LB cloud + patch libre
+#       envoyService:
+#         annotations:
+#           service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: "*"
+#           external-dns.alpha.kubernetes.io/hostname: gw.example.com
+#         patch:
+#           type: StrategicMerge
+#           value:
+#             spec:
+#               externalTrafficPolicy: Local
+#               loadBalancerClass: io.cilium/l2-announcer
+#               loadBalancerSourceRanges:
+#                 - 10.0.0.0/8
+#
+#       # envoyHpa:
+#       #   minReplicas: 2
+#       #   maxReplicas: 10
+#       #   metrics: []
+#       # envoyPDB:
+#       #   minAvailable: 1
+#       # useListenerPortAsContainerPort: false
+#
+#   # ── Modules dynamiques (ex: coraza WAF via composer) ────────────────────
+#   dynamicModules:
+#     - name: composer
+#       source:
+#         type: Local
+#         local:
+#           path: /etc/envoy/dynamic-modules/libcomposer.so
+#       doNotClose: true
+#       loadGlobally: false
+#
+#   # ── Divers ──────────────────────────────────────────────────────────────
+#   # logging:
+#   #   level:
+#   #     default: info            # trace|debug|info|warn|error|critical
+#   # telemetry:
+#   #   accessLog:
+#   #     settings:
+#   #       - format: { type: Text }
+#   #         sinks: [{ type: File, file: { path: /dev/stdout } }]
+#   #   metrics:
+#   #     prometheus: { disable: false }
+#   #   tracing:
+#   #     provider: { type: OpenTelemetry, host: otel-collector, port: 4317 }
+#   # bootstrap:
+#   #   type: JSONPatch            # Replace | Merge | JSONPatch
+#   #   jsonPatches: []
+#   # shutdown:
+#   #   drainTimeout: 60s
+#   #   minDrainDuration: 10s
+#   # concurrency: 4
+#   # ipFamily: DualStack          # IPv4 | IPv6 | DualStack
+#   # routingType: Endpoint        # Service | Endpoint
+#   # mergeGateways: false
+#   # extraArgs: []
+#   # filterOrder: []
+#   # backendTLS: {}
+#
+#   # Échappatoire pour tout champ non géré explicitement par le template
+#   # extraSpec: {}
+
+# =============================================================================
+# EnvoyProxyOverrides
+# Map indexée par nom de proxy, deep-mergée dans l'entrée `envoyProxies`
+# correspondante (les valeurs de l'override gagnent).
+# Utile quand un mécanisme d'overlay ne sait pas fusionner les listes : on
+# patche un seul proxy sans avoir à redéfinir toute la liste `envoyProxies`.
+# Un nom sans entrée correspondante dans `envoyProxies` est simplement ignoré.
+# =============================================================================
+envoyProxyOverrides: {}
+# platform-gateway-proxy:
+#   telemetry:
+#     accessLog:
+#       settings:
+#         - sinks:
+#             - type: File
+#               file:
+#                 path: /dev/stdout
+#           format:
+#             type: JSON
+#             json:
+#               start_time: "%START_TIME%"
+#               method: "%REQ(:METHOD)%"

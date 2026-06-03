@@ -1,0 +1,128 @@
+{{- range .Values.envoyProxies }}
+{{- $proxy := . }}
+{{- /* Fusion profonde de l'override homonyme (envoyProxyOverrides[<name>]) :
+       permet à un overlay de patcher un seul proxy sans redéfinir toute la liste. */}}
+{{- with index ($.Values.envoyProxyOverrides | default dict) $proxy.name }}
+{{- $proxy = mergeOverwrite (deepCopy $proxy) (deepCopy .) }}
+{{- end }}
+{{- with $proxy }}
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: {{ .name }}
+  namespace: {{ include "envoy-gateway-infra.namespace" (list . $) }}
+  labels:
+    {{- include "envoy-gateway-infra.labels" $ | nindent 4 }}
+    {{- with .labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- $annot := dict "globalAnnotations" $.Values.global.annotations "localAnnotations" .annotations }}
+  {{- with include "envoy-gateway-infra.annotations" $annot }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .provider }}
+  # provider : comment/où le data plane Envoy est déployé
+  provider:
+    type: {{ .type | default "Kubernetes" }}
+    {{- with .kubernetes }}
+    kubernetes:
+      {{- if hasKey . "envoyDeployment" }}
+      # Deployment Envoy (mode par défaut) — pod / container / patch / replicas...
+      envoyDeployment:
+        {{- toYaml .envoyDeployment | nindent 8 }}
+      {{- end }}
+      {{- if hasKey . "envoyDaemonSet" }}
+      # DaemonSet Envoy (exclusif avec envoyDeployment)
+      # `{}` = active le mode DaemonSet avec les valeurs par défaut
+      envoyDaemonSet:
+        {{- toYaml .envoyDaemonSet | nindent 8 }}
+      {{- end }}
+      {{- if hasKey . "envoyService" }}
+      # Service exposant Envoy (annotations LB cloud, patch StrategicMerge...)
+      envoyService:
+        {{- toYaml .envoyService | nindent 8 }}
+      {{- end }}
+      {{- if hasKey . "envoyHpa" }}
+      envoyHpa:
+        {{- toYaml .envoyHpa | nindent 8 }}
+      {{- end }}
+      {{- if hasKey . "envoyPDB" }}
+      envoyPDB:
+        {{- toYaml .envoyPDB | nindent 8 }}
+      {{- end }}
+      {{- if hasKey . "envoyServiceAccount" }}
+      envoyServiceAccount:
+        {{- toYaml .envoyServiceAccount | nindent 8 }}
+      {{- end }}
+      {{- if hasKey . "shutdownManager" }}
+      shutdownManager:
+        {{- toYaml .shutdownManager | nindent 8 }}
+      {{- end }}
+      {{- if hasKey . "useListenerPortAsContainerPort" }}
+      useListenerPortAsContainerPort: {{ .useListenerPortAsContainerPort }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+  {{- with .logging }}
+  # Niveau de log Envoy : trace | debug | info | warn | error | critical
+  logging:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .telemetry }}
+  # accessLog / tracing / metrics
+  telemetry:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .bootstrap }}
+  # Personnalisation du bootstrap Envoy (Replace | Merge | JSONPatch)
+  bootstrap:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .shutdown }}
+  # Drain lors du shutdown (drainTimeout / minDrainDuration)
+  shutdown:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .dynamicModules }}
+  # Modules dynamiques Envoy (ex: coraza / composer)
+  dynamicModules:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .filterOrder }}
+  filterOrder:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .backendTLS }}
+  backendTLS:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .extraArgs }}
+  extraArgs:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .concurrency }}
+  concurrency: {{ . }}
+  {{- end }}
+  {{- with .ipFamily }}
+  # IPv4 | IPv6 | DualStack
+  ipFamily: {{ . }}
+  {{- end }}
+  {{- with .routingType }}
+  # Service | Endpoint
+  routingType: {{ . }}
+  {{- end }}
+  {{- if hasKey . "mergeGateways" }}
+  mergeGateways: {{ .mergeGateways }}
+  {{- end }}
+  {{- if hasKey . "luaValidation" }}
+  luaValidation: {{ .luaValidation }}
+  {{- end }}
+  {{- with .extraSpec }}
+  # Échappatoire : tout champ du spec EnvoyProxy non explicitement géré ci-dessus
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+{{- end }}
+{{- end }}
