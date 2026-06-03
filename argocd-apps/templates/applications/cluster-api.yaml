@@ -94,7 +94,9 @@ spec:
       - CreateNamespace=true
       - RespectIgnoreDifferences=true
     {{- with $data -}}
+    {{- if .extraSyncPolicies }}
     {{ .extraSyncPolicies | toYaml | nindent 4 }}
+    {{- end }}
     {{- end }}
     retry:
       limit: 5
