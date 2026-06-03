@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'feat/**'
+
   workflow_dispatch:
     inputs:
       version:
@@ -12,7 +13,7 @@ on:
         default: '0.0.0-test'
 
       charts:
-        description: 'Charts à publier (optionnel: envoy-gateway-policies,envoy-gateway-routes ou vide pour les deux)'
+        description: 'Charts à publier (envoy-gateway-policies,envoy-gateway-routes ou vide pour les deux)'
         required: false
         default: ''
 
@@ -26,10 +27,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
 
       - name: Install yq
         run: |
@@ -47,29 +48,33 @@ jobs:
       - name: Build and push charts
         env:
           OWNER: ${{ github.repository_owner }}
-          VERSION: ${{ github.event.inputs.version }}
+          VERSION: ${{ github.event.inputs.version || '0.0.0-test' }}
           SELECTED_CHARTS: ${{ github.event.inputs.charts }}
         run: |
           set -euo pipefail
 
           repo="oci://ghcr.io/${OWNER}/common-helm-charts"
 
+          # seuls charts autorisés
           allowed_charts="envoy-gateway-policies envoy-gateway-routes"
 
           mkdir -p dist
 
           echo "Version: $VERSION"
-          echo "Selected: ${SELECTED_CHARTS:-all}"
+          echo "Selected charts: ${SELECTED_CHARTS:-all}"
 
           for chart in */Chart.yaml; do
             dir="$(dirname "$chart")"
             name="$(basename "$dir")"
 
-            # whitelist stricte
-            if ! echo "$allowed_charts" | grep -wq "$name"; then
-              echo "Skip not allowed: $name"
-              continue
-            fi
+            # whitelist stricte (sécurité)
+            case "$name" in
+              envoy-gateway-policies|envoy-gateway-routes) ;;
+              *)
+                echo "Skip not allowed: $name"
+                continue
+                ;;
+            esac
 
             # filtre input optionnel
             if [ -n "${SELECTED_CHARTS:-}" ]; then
@@ -82,6 +87,11 @@ jobs:
             echo "Packaging $name"
             helm package "$dir" -d dist
           done
+
+          if ! ls dist/*.tgz >/dev/null 2>&1; then
+            echo "No charts to publish"
+            exit 1
+          fi
 
           for pkg in dist/*.tgz; do
             name="$(helm show chart "$pkg" | awk -F': ' '$1=="name"{print $2}')"
