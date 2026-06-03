@@ -1,19 +1,20 @@
-name: Publish Helm charts to GHCR (OCI) - feat branch tags
+name: Publish Helm charts to GHCR (OCI) - manual test builds
 
 on:
-  push:
-    branches:
-      - 'feat/**'
-
   workflow_dispatch:
     inputs:
+      version:
+        description: 'Version test (e.g. 1.2.3 or 0.0.0-test)'
+        required: true
+        default: '0.0.0-test'
+
       charts:
-        description: 'Charts à publier (séparés par des virgules). Laisser vide pour tous les charts.'
+        description: 'Charts à publier (optionnel: envoy-gateway-policies,envoy-gateway-routes ou vide pour les deux)'
         required: false
         default: ''
 
 jobs:
-  publish-dev:
+  publish:
     runs-on: ubuntu-latest
 
     permissions:
@@ -22,10 +23,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@v4
 
       - name: Install Helm
-        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+        uses: azure/setup-helm@v4
 
       - name: Install yq
         run: |
@@ -40,59 +41,59 @@ jobs:
                 -u "${{ github.actor }}" \
                 --password-stdin
 
-      - name: Package and push selected dev charts
+      - name: Build and push charts
         env:
           OWNER: ${{ github.repository_owner }}
-          SHA: ${{ github.sha }}
+          VERSION: ${{ github.event.inputs.version }}
           SELECTED_CHARTS: ${{ github.event.inputs.charts }}
         run: |
           set -euo pipefail
 
           repo="oci://ghcr.io/${OWNER}/common-helm-charts"
-          short_sha="${SHA:0:7}"
+
+          allowed_charts="envoy-gateway-policies envoy-gateway-routes"
 
           mkdir -p dist
 
-          echo "Selected charts: ${SELECTED_CHARTS:-<all>}"
+          echo "Version: $VERSION"
+          echo "Selected: ${SELECTED_CHARTS:-all}"
 
           for chart in */Chart.yaml; do
-            chart_dir="$(dirname "$chart")"
-            chart_name="$(basename "$chart_dir")"
+            dir="$(dirname "$chart")"
+            name="$(basename "$dir")"
 
+            # whitelist stricte
+            if ! echo "$allowed_charts" | grep -wq "$name"; then
+              echo "Skip not allowed: $name"
+              continue
+            fi
+
+            # filtre input optionnel
             if [ -n "${SELECTED_CHARTS:-}" ]; then
-              if ! echo ",${SELECTED_CHARTS}," | grep -q ",${chart_name},"; then
-                echo "Skipping ${chart_name}"
+              if ! echo ",$SELECTED_CHARTS," | grep -q ",$name,"; then
+                echo "Skip not selected: $name"
                 continue
               fi
             fi
 
-            echo "Packaging ${chart_name}"
-            helm package "$chart_dir" -d dist
+            echo "Packaging $name"
+            helm package "$dir" -d dist
           done
-
-          if ! ls dist/*.tgz >/dev/null 2>&1; then
-            echo "No chart selected or packaged"
-            exit 1
-          fi
 
           for pkg in dist/*.tgz; do
             name="$(helm show chart "$pkg" | awk -F': ' '$1=="name"{print $2}')"
-            ver="$(helm show chart "$pkg" | awk -F': ' '$1=="version"{print $2}')"
 
-            echo "Publishing ${name}:${ver}-dev-${short_sha}"
+            echo "Processing $name"
 
             tmpdir="$(mktemp -d)"
-
             tar -xzf "$pkg" -C "$tmpdir"
 
-            yq -i \
-              ".version = \"${ver}-dev-${short_sha}\"" \
-              "$tmpdir/$name/Chart.yaml"
+            yq -i ".version = \"${VERSION}\"" "$tmpdir/$name/Chart.yaml"
 
             helm package "$tmpdir/$name" -d "$tmpdir"
 
             helm push \
-              "$tmpdir/${name}-${ver}-dev-${short_sha}.tgz" \
+              "$tmpdir/${name}-${VERSION}.tgz" \
               "$repo"
 
             rm -rf "$tmpdir"
