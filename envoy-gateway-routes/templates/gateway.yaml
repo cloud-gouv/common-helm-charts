@@ -40,7 +40,7 @@ spec:
       protocol: {{ .protocol }}
       port: {{ .port }}
       {{- with .hostname }}
-      hostname: {{ . }}
+      hostname: {{ . | quote }}
       {{- end }}
       {{- with .allowedRoutes }}
       allowedRoutes:
