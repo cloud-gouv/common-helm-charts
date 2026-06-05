@@ -1,0 +1,16 @@
+# templates/certificate.yaml
+{{- range .Values.certificates }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .name }}
+  namespace: {{ .namespace | default "envoy-gateway-system" }}
+spec:
+  secretName: {{ .secretName }}
+  issuerRef:
+    name: {{ .issuerName }}
+    kind: {{ .issuerKind | default "ClusterIssuer" }}
+  dnsNames:
+    {{- toYaml .dnsNames | nindent 4 }}
+{{- end }}

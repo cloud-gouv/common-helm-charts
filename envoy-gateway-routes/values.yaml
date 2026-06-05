@@ -113,6 +113,13 @@ gateways: []
 #       name: private-envoy-proxy
 #       namespace: envoy-gateway-system
 
+certificates: []
+  # - name: argocd-tls
+  #   namespace: envoy-gateway-system
+  #   secretName: {{ macro.fqdn("argocd") }}
+  #   issuerName: {{ cluster_issuer }}
+  #   dnsNames:
+  #     - {{ macro.fqdn("argocd") }}
 
 # =============================================================================
 # HTTPRoute
