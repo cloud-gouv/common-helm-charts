@@ -1,0 +1,27 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: auditbeat
+  namespace: {{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: auditbeat
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: auditbeat
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: auditbeat-kubeadm-config
+  namespace: {{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: auditbeat
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: auditbeat-kubeadm-config
+  apiGroup: rbac.authorization.k8s.io

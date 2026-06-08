@@ -1,0 +1,128 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: auditbeat
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: auditbeat
+    app.kubernetes.io/name: auditbeat
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+spec:
+  selector:
+    matchLabels:
+      app: auditbeat
+  template:
+    metadata:
+      labels:
+        app: auditbeat
+        app.kubernetes.io/name: auditbeat
+        app.kubernetes.io/version: {{ .Chart.AppVersion }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "auditbeat.serviceAccountName" . }}
+      terminationGracePeriodSeconds: 30
+      hostNetwork: true
+      hostPID: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: auditbeat
+        image: {{ .Values.image }}
+        args:
+          - "-c"
+          - "/etc/auditbeat.yml"
+          - "-e"
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        {{- with .Values.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: config
+          mountPath: /etc/auditbeat.yml
+          readOnly: true
+          subPath: auditbeat.yml
+        - name: modules
+          mountPath: /usr/share/auditbeat/modules.d
+          readOnly: true
+        - name: data
+          mountPath: /usr/share/auditbeat/data
+        - name: bin
+          mountPath: /hostfs/bin
+          readOnly: true
+        - name: sbin
+          mountPath: /hostfs/sbin
+          readOnly: true
+        - name: usrbin
+          mountPath: /hostfs/usr/bin
+          readOnly: true
+        - name: usrsbin
+          mountPath: /hostfs/usr/sbin
+          readOnly: true
+        - name: etc
+          mountPath: /hostfs/etc
+          readOnly: true
+        - name: run-containerd
+          mountPath: /run/containerd
+          readOnly: true
+      volumes:
+      - name: bin
+        hostPath:
+          path: /bin
+      - name: usrbin
+        hostPath:
+          path: /usr/bin
+      - name: sbin
+        hostPath:
+          path: /sbin
+      - name: usrsbin
+        hostPath:
+          path: /usr/sbin
+      - name: etc
+        hostPath:
+          path: /etc
+      - name: config
+        configMap:
+          defaultMode: 0640
+          name: auditbeat-config
+      - name: modules
+        configMap:
+          defaultMode: 0640
+          name: auditbeat-daemonset-modules
+      - name: data
+        hostPath:
+          path: /var/lib/auditbeat-data
+          type: DirectoryOrCreate
+      - name: run-containerd
+        hostPath:
+          path: /run/containerd
+          type: DirectoryOrCreate

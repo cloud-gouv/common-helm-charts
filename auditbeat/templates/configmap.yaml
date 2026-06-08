@@ -1,0 +1,157 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auditbeat-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: auditbeat
+data:
+  auditbeat.yml: |-
+    auditbeat.config.modules:
+      # Mounted `auditbeat-daemonset-modules` configmap:
+      path: ${path.config}/modules.d/*.yml
+      reload.enabled: false
+
+    processors:
+      - add_host_metadata:
+      - add_cloud_metadata:
+      - add_process_metadata:
+          match_pids: ['process.pid']
+          include_fields: ['container.id']
+          target: process.parent
+      - add_kubernetes_metadata:
+          host: ${NODE_NAME}
+          default_indexers.enabled: false
+          default_matchers.enabled: false
+          indexers:
+            - container:
+          matchers:
+            - fields.lookup_fields: ['container.id']
+      - drop_fields:
+          fields: ["agent", "host.mac", "host.os", "host.geo"]
+      # Suppression totale de l'event sur certaines conditions (process inutiles et très verbeux en nombre d'exécution)
+      - drop_event:  
+          when:     
+            or:
+              - contains:
+                  process.parent.process.title: "timeout 5 tcpdump -i any -nn"
+              - and:
+                - equals:
+                    process.parent.process.name: "bash"
+                - equals:
+                    process.name: "timeout"
+              - and:
+                - equals:
+                    process.parent.process.name: "timeout"
+                - equals:
+                    process.name: "timeout"
+              - and:
+                - regexp :
+                    host.name: ".*siem.*"
+                - regexp :
+                    process.name: ".*grep.*"
+              - and:
+                - equals:
+                    process.parent.process.name: "nrpe"
+                - equals:
+                    process.name: "ld"
+              - and:
+                - equals:
+                    process.name: "6"
+                - equals:
+                    process.parent.process.name: "runc"
+              - and:
+                - equals:
+                    process.name: "readiness-probe"
+                - equals:
+                    process.parent.process.name: "containerd-shim"
+              - and:
+                - equals:
+                    process.name: "timeout"
+                - equals:
+                    process.parent.process.name: "timeout"
+              - and:
+                - equals:
+                    process.name: "timeout"
+                - equals:
+                    process.parent.process.name: "bash"
+              - and:
+                - equals:
+                    process.name: tcpdump
+                - equals:
+                    process.parent.process.name: timeout
+              - and:
+                - equals:
+                    process.name: "ldconfig"
+                - equals:
+                    process.parent.process.name: "ceph"
+              - and:
+                - equals:
+                    process.name: "ceph"
+                - equals:
+                    process.parent.process.name: "containerd-shim"
+              - equals:
+                  process.name: "date"
+              - equals:
+                  process.parent.process.name: "keepalived"
+              - and:
+                - equals:
+                    process.parent.process.name: "bash"
+                - equals:
+                    process.name: "ionice"
+              - and:
+                - regexp :
+                    process.name: ".*runc.*"
+              - and:
+                - equals:
+                    process.name: "exe"
+                - equals:
+                    process.parent.process.name: "runc"
+              - and:
+                - equals:
+                    process.name: "healthcheck.sh"
+    output.console:
+      enabled: true
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auditbeat-daemonset-modules
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: auditbeat
+data:
+  system.yml: |-
+    - module: file_integrity
+      paths:
+      - /hostfs/etc
+      - /hostfs/boot
+      - /hostfs/opt
+      - /hostfs/root
+      scan_at_start: true
+      scan_rate_per_sec: 10 MiB
+      max_file_size: 500 MiB
+      hash_types: [sha512]
+      recursive: true
+    - module: auditd
+      audit_rules: |
+        -w /sbin/insmod -p x
+        -w /sbin/modprobe -p x
+        -w /sbin/rmmod -p x
+        -w /bin/kmod -p x
+        -a exit,always -S mount -S umount2
+        -a exit,always -S get_kernel_syms -S ptrace
+        -a exit,always -F arch=b64 -S execve ,execveat
+        -a exit,always -F arch=b32 -S execve ,execveat
+        -a exit,always -F arch=b64 -S init_module -S delete_module
+        -a exit,always -F arch=b64 -S finit_module
+    - module: system
+      datasets:
+        - package 
+        - process
+        - login
+      period: 30s
+      state.period: 12h
+      user.detect_password_changes: true
+      login.wtmp_file_pattern: /hostfs/var/log/wtmp*
+      login.btmp_file_pattern: /hostfs/var/log/btmp*
