@@ -96,12 +96,12 @@ tolerations: []
 # Affinity
 affinity: {}
 
-# PodSecurityContext
-podSecurityContext:
+# PodSecurityContext for pgbench container
+podSecurityContextPgbench:
   fsGroup: 999
 
-# SecurityContext
-securityContext:
+# SecurityContext for pgbench container
+securityContextPgbench:
   privileged: false
   allowPrivilegeEscalation: false
   readOnlyRootFilesystem: true
@@ -113,3 +113,42 @@ securityContext:
       - ALL
   seccompProfile:
     type: RuntimeDefault
+
+# PodSecurityContext for fio container
+podSecurityContextFio:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+# SecurityContext for fio container
+securityContextFio:
+  privileged: false
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
+fio:
+  runtime: 10
+  numjobs: 1
+  modes:
+    - read
+    - write
+    - randread
+    - randwrite
+  blockSizes:
+    - 1k
+    - 4k
+    - 8k
+    - 16k
+    - 32k
+    - 1M
+    - 32M
