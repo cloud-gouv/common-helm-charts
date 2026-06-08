@@ -94,6 +94,33 @@ gateways: []
 #           - group: gateway.networking.k8s.io
 #             kind: UDPRoute
 
+# =============================================================================
+# ListenerSet
+# Attach extra listeners to an existing Gateway
+# =============================================================================
+listenerSets: []
+# - name: argocd-listeners
+#   namespace: argocd
+#   parentRef:
+#     name: cluster-gateway
+#     namespace: envoy-gateway-system
+#     kind: Gateway
+#     group: gateway.networking.k8s.io
+#   listeners:
+#     - name: https-argocd
+#       protocol: HTTPS
+#       port: 443
+#       hostname: argocd.example.com
+#       tls:
+#         mode: Terminate
+#         certificateRefs:
+#           - group: ""
+#             kind: Secret
+#             name: argocd.example.com
+#       allowedRoutes:
+#         namespaces:
+#           from: Same
+
 # Cas une seule classe (défaut EG)
 # gatewayClasses:
 #   - name: eg
@@ -112,14 +139,6 @@ gateways: []
 #       kind: EnvoyProxy
 #       name: private-envoy-proxy
 #       namespace: envoy-gateway-system
-
-certificates: []
-  # - name: argocd-tls
-  #   namespace: envoy-gateway-system
-  #   secretName: {{ macro.fqdn("argocd") }}
-  #   issuerName: {{ cluster_issuer }}
-  #   dnsNames:
-  #     - {{ macro.fqdn("argocd") }}
 
 # =============================================================================
 # HTTPRoute
