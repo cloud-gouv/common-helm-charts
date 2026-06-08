@@ -3,58 +3,71 @@
 apiVersion: gateway.networking.k8s.io/v1
 kind: ListenerSet
 metadata:
-	name: {{ .name }}
-	namespace: {{ include "envoy-gateway-routes.namespace" (list . $) }}
-	labels:
-		{{- include "envoy-gateway-routes.labels" $ | nindent 4 }}
-		{{- with .labels }}
-		{{- toYaml . | nindent 4 }}
-		{{- end }}
-	{{- $annot := dict "globalAnnotations" $.Values.global.annotations "localAnnotations" .annotations }}
-	{{- with include "envoy-gateway-routes.annotations" $annot }}
-	annotations:
-		{{- . | nindent 4 }}
-	{{- end }}
+  name: {{ .name }}
+  namespace: {{ include "envoy-gateway-routes.namespace" (list . $) }}
+
+  labels:
+    {{- include "envoy-gateway-routes.labels" $ | nindent 4 }}
+    {{- with .labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+
+  {{- $annot := dict "globalAnnotations" $.Values.global.annotations "localAnnotations" .annotations }}
+  {{- with include "envoy-gateway-routes.annotations" $annot }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+
 spec:
-	parentRef:
-		{{- include "envoy-gateway-routes.parentRef" .parentRef | nindent 4 }}
-	listeners:
-	{{- range .listeners }}
-		- name: {{ .name }}
-			protocol: {{ .protocol }}
-			port: {{ .port }}
-			{{- with .hostname }}
-			hostname: {{ . | quote }}
-			{{- end }}
-			{{- with .allowedRoutes }}
-			allowedRoutes:
-				{{- with .namespaces }}
-				namespaces:
-					from: {{ .from | default "Same" }}
-					{{- if eq (.from | default "Same") "Selector" }}
-					selector:
-						matchLabels:
-							{{- toYaml .selector.matchLabels | nindent 14 }}
-					{{- end }}
-				{{- end }}
-				{{- with .kinds }}
-				kinds:
-					{{- toYaml . | nindent 10 }}
-				{{- end }}
-			{{- end }}
-			{{- if or (eq .protocol "HTTPS") (eq .protocol "TLS") }}
-			{{- with .tls }}
-			tls:
-				mode: {{ .mode | default "Terminate" }}
-				{{- with .certificateRefs }}
-				certificateRefs:
-					{{- toYaml . | nindent 10 }}
-				{{- end }}
-				{{- with .options }}
-				options:
-					{{- toYaml . | nindent 10 }}
-				{{- end }}
-			{{- end }}
-			{{- end }}
-	{{- end }}
+  parentRef:
+    {{- include "envoy-gateway-routes.parentRef" .parentRef | nindent 4 }}
+
+  listeners:
+{{- range .listeners }}
+    - name: {{ .name }}
+      protocol: {{ .protocol }}
+      port: {{ .port }}
+
+      {{- with .hostname }}
+      hostname: {{ . | quote }}
+      {{- end }}
+
+      {{- with .allowedRoutes }}
+      allowedRoutes:
+        {{- with .namespaces }}
+        namespaces:
+          from: {{ .from | default "Same" }}
+
+          {{- if eq (.from | default "Same") "Selector" }}
+          selector:
+            matchLabels:
+{{ toYaml .selector.matchLabels | nindent 14 }}
+          {{- end }}
+        {{- end }}
+
+        {{- with .kinds }}
+        kinds:
+{{ toYaml . | nindent 10 }}
+        {{- end }}
+      {{- end }}
+
+      {{- if or (eq .protocol "HTTPS") (eq .protocol "TLS") }}
+      {{- with .tls }}
+      tls:
+        mode: {{ .mode | default "Terminate" }}
+
+        {{- with .certificateRefs }}
+        certificateRefs:
+{{ toYaml . | nindent 10 }}
+        {{- end }}
+
+        {{- with .options }}
+        options:
+{{ toYaml . | nindent 10 }}
+        {{- end }}
+      {{- end }}
+      {{- end }}
+
+{{- end }}
+
 {{- end }}
