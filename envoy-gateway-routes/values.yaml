@@ -29,7 +29,10 @@ gateways: []
 #       app: my-gateway
 #     annotations:
 #       service.beta.kubernetes.io/aws-load-balancer-type: nlb
-#
+#   
+#.  allowedListeners:
+#     namespaces:
+#       from: All
 #   listeners:
 #     # ── Plain HTTP listener ────────────────────────────────────────────────
 #     - name: http
