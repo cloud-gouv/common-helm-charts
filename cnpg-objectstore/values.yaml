@@ -1,0 +1,17 @@
+storeName: default-store
+# Name of the bucket to backup to
+bucketName:
+# FQDN of the s3 endpoint
+endpointURL: https://s3.eu-west-par.io.cloud.ovh.net
+# Compression algorithm https://cloudnative-pg.io/plugin-barman-cloud/docs/compression/
+compressionType: bzip2
+
+secret:
+  # Name of the secret, either existing or not.
+  name: minio-example
+  # Whether secret should be created by the chart or not.
+  useExistingSecret: false
+  # s3 Credentials
+  ACCESS_KEY_ID:
+  ACCESS_SECRET_KEY:
+

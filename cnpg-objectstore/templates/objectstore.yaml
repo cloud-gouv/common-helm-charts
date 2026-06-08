@@ -1,0 +1,17 @@
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: {{ .Values.storeName }}-backups
+spec:
+  configuration:
+    destinationPath: s3://{{ .Values.bucketName }}/
+    endpointURL: {{ .Values.endpointURL }}
+    s3Credentials:
+      accessKeyId:
+        name: minio-eu
+        key: ACCESS_KEY_ID
+      secretAccessKey:
+        name: minio-eu
+        key: ACCESS_SECRET_KEY
+    wal:
+      compression: {{ .Values.compressionType }}
