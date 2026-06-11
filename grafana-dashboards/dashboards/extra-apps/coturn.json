@@ -31,7 +31,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "mimir_dev"
+        "uid": "mimir_ft"
       },
       "fieldConfig": {
         "defaults": {
@@ -116,7 +116,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "mimir_dev"
+            "uid": "mimir_ft"
           },
           "editorMode": "code",
           "expr": "process_open_fds{job=~\"(?i).*?($fsw_name).*?\"}",
@@ -132,7 +132,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "mimir_dev"
+        "uid": "mimir_ft"
       },
       "fieldConfig": {
         "defaults": {
@@ -218,7 +218,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "mimir_dev"
+            "uid": "mimir_ft"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -235,7 +235,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "mimir_dev"
+        "uid": "mimir_ft"
       },
       "fieldConfig": {
         "defaults": {
@@ -320,7 +320,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "mimir_dev"
+            "uid": "mimir_ft"
           },
           "editorMode": "code",
           "expr": "sum(turn_total_allocations{job=~\"(?i).*?($fsw_name).*?\",type=\"TCP\"}) by(job)",
@@ -336,7 +336,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "mimir_dev"
+        "uid": "mimir_ft"
       },
       "fieldConfig": {
         "defaults": {
@@ -421,7 +421,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "mimir_dev"
+            "uid": "mimir_ft"
           },
           "editorMode": "code",
           "expr": "sum(turn_total_allocations{job=~\"(?i).*?($fsw_name).*?\",type=\"UDP\"}) by(job)",
@@ -437,7 +437,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "mimir_dev"
+        "uid": "mimir_ft"
       },
       "fieldConfig": {
         "defaults": {
@@ -523,7 +523,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "mimir_dev"
+            "uid": "mimir_ft"
           },
           "editorMode": "code",
           "expr": "irate(turn_total_traffic_rcvb{job=~\"(?i).*?($fsw_name).*?\"}[5m])",
@@ -535,7 +535,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "mimir_dev"
+            "uid": "mimir_ft"
           },
           "editorMode": "code",
           "expr": "irate(turn_total_traffic_sentb{job=~\"(?i).*?($fsw_name).*?\"}[5m])",
