@@ -8,6 +8,8 @@
 #  mynew_secret:
 #    name: mynew-secret
 #    namespace: ns1
+#    annotations:
+#      argocd.argoproj.io/sync-wave: "-1"
 #    type: Opaque
 #    secrets:
 #    - key: full/secret/path
