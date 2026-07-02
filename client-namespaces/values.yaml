@@ -33,6 +33,14 @@ defaults:
     defaultRequestMemory: "10Mi"
     defaultLimitMemory: "10Mi"
 
+
+# imagePullSecret: 
+#   name: regcred-opicloud
+#   type: kubernetes.io/dockerconfigjson
+#   stringData:
+#     .dockerconfigjson: |
+#       {"auths":{"registry.example.com":{"auth":"..."}}}
+
 # list of namespaces that will be set (along with their properties).
 # if 'rbac' is not empty then it will override the defaults
 # if 'quotas' is not empty then it will be merged with the defaults
@@ -45,6 +53,7 @@ clientNamespaces: {}
 #     rbac: []                          # simply apply the defaults
 #     quotas: {}                        # simply apply the defaults
 #     limitRanges: {}                   # simply apply the defaults
+#
 #   sample-2:
 #     labels:
 #       mysuperlabel: testlabel
