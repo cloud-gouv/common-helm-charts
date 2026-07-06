@@ -22,6 +22,10 @@ metadata:
   # here is the argocd app name for the cluster
   name: {{ $app }}-{{ $appName }}
   namespace: {{ $.Values.namespace }}
+  {{- if and $data (hasKey $data "annotations") }}
+  annotations:
+{{ toYaml $data.annotations | nindent 4 }}
+  {{- end }}
 spec:
   project: default
   destination:

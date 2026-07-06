@@ -100,6 +100,8 @@ applications: {}
 #        cluster-core:
 #        cluster-workload:
 #          enabled: false
+#          annotations:
+#            my.company.io/team: platform
 #
 #  ### config of cluster which uses a root apps-of-apps
 #  ### since the source (repoURL, path) is defined globally, you cannot use both "root-app" and "apps" in this file
