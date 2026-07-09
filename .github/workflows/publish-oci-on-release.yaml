@@ -1,72 +1,91 @@
 name: Publish Helm charts to GHCR (OCI)
 
 on:
-  release:
-    types: [ published ]
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to test (e.g. x.x.x)'
-        required: true
-        default: '0.0.0-test'
+  push:
+    branches: [main]
+    paths:
+      - '**/Chart.yaml'
 
 jobs:
-  publish:
+  detect:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
-    env:
-      RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.version }}
+      packages: read
+    outputs:
+      charts: ${{ steps.detect.outputs.charts }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Install Helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
 
-      - name: Compute chart version
+      - name: Login to GHCR
+        run: echo "${{ github.token }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Detect charts with a new appVersion
+        id: detect
         shell: bash
         run: |
           set -euo pipefail
+          namespace="${GITHUB_REPOSITORY_OWNER,,}"
+          charts_json="[]"
 
-          chart_version="${RELEASE_TAG#v}"
+          for chart_yaml in */Chart.yaml; do
+            dir="$(dirname "$chart_yaml")"
+            name="$(yq '.name' "$chart_yaml")"
+            app_version="$(yq '.appVersion' "$chart_yaml")"
+            app_version="${app_version#v}"
 
-          if [[ -z "$chart_version" ]]; then
-            echo "Release tag is empty" >&2
-            exit 1
-          fi
+            if [[ -z "$app_version" || "$app_version" == "null" ]]; then
+              echo "::warning::$chart_yaml has no appVersion, skipping"
+              continue
+            fi
 
-          if [[ ! "$chart_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
-            echo "Release tag '$RELEASE_TAG' does not produce a valid Helm chart version ('$chart_version')." >&2
-            echo "Use a SemVer tag such as 1.2.3 or v1.2.3." >&2
-            exit 1
-          fi
+            if [[ ! "$app_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+              echo "::warning::$name appVersion '$app_version' is not valid SemVer, skipping"
+              continue
+            fi
 
-          echo "CHART_VERSION=$chart_version" >> "$GITHUB_ENV"
-          echo "OCI_NAMESPACE=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+            if helm show chart "oci://ghcr.io/$namespace/helm/$name" --version "$app_version" >/dev/null 2>&1; then
+              echo "$name@$app_version already published, skipping"
+              continue
+            fi
+
+            echo "$name@$app_version is new, queuing for publish"
+            charts_json=$(jq -c --arg dir "$dir" --arg name "$name" --arg version "$app_version" \
+              '. + [{"dir": $dir, "name": $name, "version": $version}]' <<<"$charts_json")
+          done
+
+          echo "charts=$charts_json" >> "$GITHUB_OUTPUT"
+  publish:
+    needs: detect
+    if: needs.detect.outputs.charts != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        chart: ${{ fromJson(needs.detect.outputs.charts) }}
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install Helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
 
       - name: Login to GHCR
         run: echo "${{ github.token }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-      - name: Package charts
+      - name: Package and push chart
         shell: bash
         run: |
           set -euo pipefail
-
           mkdir -p dist
-          for chart in */Chart.yaml; do
-            d="$(dirname "$chart")"
-            helm package "$d" \
-              --version "$CHART_VERSION" \
-              --app-version "$RELEASE_TAG" \
-              -d dist
-          done
-
-      - name: Push charts
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          for pkg in dist/*.tgz; do
-            helm push "$pkg" "oci://ghcr.io/$OCI_NAMESPACE/helm"
-          done
+          helm package "${{ matrix.chart.dir }}" \
+            --version "${{ matrix.chart.version }}" \
+            --app-version "${{ matrix.chart.version }}" \
+            -d dist
+          helm push "dist/${{ matrix.chart.name }}-${{ matrix.chart.version }}.tgz" \
+            "oci://ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/helm"
