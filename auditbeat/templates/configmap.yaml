@@ -16,7 +16,7 @@ data:
       - add_host_metadata:
       - add_cloud_metadata:
       - add_process_metadata:
-          match_pids: ['process.pid']
+          match_pids: ['process.ppid']
           include_fields: ['container.id']
           target: process.parent
       - add_kubernetes_metadata:
@@ -29,87 +29,6 @@ data:
             - fields.lookup_fields: ['container.id']
       - drop_fields:
           fields: ["agent", "host.mac", "host.os", "host.geo"]
-      # Suppression totale de l'event sur certaines conditions (process inutiles et très verbeux en nombre d'exécution)
-      - drop_event:  
-          when:     
-            or:
-              - contains:
-                  process.parent.process.title: "timeout 5 tcpdump -i any -nn"
-              - and:
-                - equals:
-                    process.parent.process.name: "bash"
-                - equals:
-                    process.name: "timeout"
-              - and:
-                - equals:
-                    process.parent.process.name: "timeout"
-                - equals:
-                    process.name: "timeout"
-              - and:
-                - regexp :
-                    host.name: ".*siem.*"
-                - regexp :
-                    process.name: ".*grep.*"
-              - and:
-                - equals:
-                    process.parent.process.name: "nrpe"
-                - equals:
-                    process.name: "ld"
-              - and:
-                - equals:
-                    process.name: "6"
-                - equals:
-                    process.parent.process.name: "runc"
-              - and:
-                - equals:
-                    process.name: "readiness-probe"
-                - equals:
-                    process.parent.process.name: "containerd-shim"
-              - and:
-                - equals:
-                    process.name: "timeout"
-                - equals:
-                    process.parent.process.name: "timeout"
-              - and:
-                - equals:
-                    process.name: "timeout"
-                - equals:
-                    process.parent.process.name: "bash"
-              - and:
-                - equals:
-                    process.name: tcpdump
-                - equals:
-                    process.parent.process.name: timeout
-              - and:
-                - equals:
-                    process.name: "ldconfig"
-                - equals:
-                    process.parent.process.name: "ceph"
-              - and:
-                - equals:
-                    process.name: "ceph"
-                - equals:
-                    process.parent.process.name: "containerd-shim"
-              - equals:
-                  process.name: "date"
-              - equals:
-                  process.parent.process.name: "keepalived"
-              - and:
-                - equals:
-                    process.parent.process.name: "bash"
-                - equals:
-                    process.name: "ionice"
-              - and:
-                - regexp :
-                    process.name: ".*runc.*"
-              - and:
-                - equals:
-                    process.name: "exe"
-                - equals:
-                    process.parent.process.name: "runc"
-              - and:
-                - equals:
-                    process.name: "healthcheck.sh"
     output.console:
       enabled: true
 ---
@@ -135,20 +54,1991 @@ data:
       recursive: true
     - module: auditd
       audit_rules: |
-        -w /sbin/insmod -p x
-        -w /sbin/modprobe -p x
-        -w /sbin/rmmod -p x
-        -w /bin/kmod -p x
-        -a exit,always -S mount -S umount2
-        -a exit,always -S get_kernel_syms -S ptrace
-        -a exit,always -F arch=b64 -S execve ,execveat
-        -a exit,always -F arch=b32 -S execve ,execveat
-        -a exit,always -F arch=b64 -S init_module -S delete_module
-        -a exit,always -F arch=b64 -S finit_module
+        ####################Configuration auditd (mode intégré à auditbeat) ###########
+        #                                   SECTIONS :                                #
+        # Self Auditing --------------------------------------------------------------#
+        # Filters --------------------------------------------------------------------#
+        # Rules ----------------------------------------------------------------------#
+        # Special Rules --------------------------------------------------------------#
+        # Software Management --------------------------------------------------------#
+        # Special Software -----------------------------------------------------------#
+        # High Volume Events ---------------------------------------------------------#
+        # CSIRT specific others binaries exec ----------------------------------------#
+        # Make The Configuration Immutable -------------------------------------------#
+        ################################# CSIRT-DINUM #################################
+
+        # Self Auditing ---------------------------------------------------------------
+        ## Auditd configuration
+        ### Modifications to audit configuration that occur while the audit collection functions are operating
+        -w /etc/auditbeat/auditbeat.yml -p wa -k auditconfig
+        -w /etc/auditbeat/audit.rules.d/ -p wa -k auditconfig
+        # Filters ---------------------------------------------------------------------
+        ### We put these early because audit is a first match wins system.
+        ## Ignore current working directory records
+        ## -a always,exclude -F msgtype=CWD
+        ## Cron jobs fill the logs with stuff we normally don't want (works with SELinux)
+        -a never,user -F subj_type=crond_t
+        -a never,exit -F subj_type=crond_t
+        ## This prevents chrony from overwhelming the logs
+        #-a never,exit -F arch=b64 -S adjtimex -F auid=-1 -F uid=chrony -F subj_type=chronyd_t
+        ## This is not very interesting and wastes a lot of space if the server is public facing
+        -a always,exclude -F msgtype=CRYPTO_KEY_USER
+        ## Open VM Tools
+        -a exit,never -F arch=b64 -S all -F exe=/hostfs/usr/bin/vmtoolsd
+        ## High Volume Event Filter (especially on Linux Workstations)
+        -a never,exit -F arch=b64 -F dir=/hostfs/dev/shm/ -F key=sharedmemaccess
+        -a never,exit -F arch=b64 -F dir=/hostfs/var/lock/lvm/ -F key=locklvm
+        ## More information on how to filter events
+        ### <https://access.redhat.com/solutions/2482221>
+        # Rules -----------------------------------------------------------------------
+        ## Syslog config change
+        -a always,exit -F dir=/hostfs/etc/rsyslog/ -F perm=wa -k syslog_config
+        -a always,exit -F dir=/hostfs/etc/syslog-ng/ -F perm=wa -k syslog_config
+        ## Kernel parameters
+        -w /hostfs/etc/sysctl.conf -p wa -k sysctl
+        -w /hostfs/etc/sysctl.d -p wa -k sysctl
+        ## Kernel module loading and unloading
+        -a always,exit -F perm=x -F auid!=-1 -F path=/hostfs/sbin/insmod -k modules
+        -a always,exit -F perm=x -F auid!=-1 -F path=/hostfs/sbin/modprobe -k modules
+        -a always,exit -F perm=x -F auid!=-1 -F path=/hostfs/sbin/rmmod -k modules
+        -a always,exit -F arch=b64 -S finit_module -S init_module -S delete_module -F auid!=-1 -k modules
+        ## Modprobe configuration
+        -w /hostfs/etc/modprobe.conf -p wa -k modprobe
+        -w /hostfs/etc/modprobe.d -p wa -k modprobe
+        -a always,exit -F dir=/etc/modprobe.d -F perm=wa -k modprobe_dir_changes
+        ## KExec usage (all actions)
+        -a always,exit -F arch=b64 -S kexec_load -k KEXEC
+        ## Special files
+        -a always,exit -F arch=b64 -S mknod -S mknodat -k specialfiles
+        ## Mount operations (only attributable)
+        -a always,exit -F arch=b64 -S mount -S umount2 -F auid!=-1 -k mount
+        ### NFS mount
+        -a always,exit -F path=/hostfs/sbin/mount.nfs -F perm=x -F auid>=500 -F auid!=4294967295 -k T1078_Valid_Accounts
+        -a always,exit -F path=/hostfs/usr/sbin/mount.nfs -F perm=x -F auid>=500 -F auid!=4294967295 -k T1078_Valid_Accounts
+        ## Change swap (only attributable)
+        -a always,exit -F arch=b64 -S swapon -S swapoff -F auid!=-1 -k swap
+        ## Time
+        #-a always,exit -F arch=b64 -F uid!=ntp -S adjtimex -S settimeofday -S clock_settime -k time
+        ### Local time zone
+        -w /hostfs/etc/localtime -p wa -k localtime
+        ## Stunnel
+        -w /hostfs/usr/bin/stunnel -p x -k stunnel_exec
+        -w /hostfs/bin/stunnel -p x -k stunnel_exec
+        -w /hostfs/usr/sbin/stunnel -p x -k stunnel_exec
+        -w /hostfs/usr/local/sbin/stunnel -p x -k stunnel_exec
+        -w /hostfs/usr/local/bin/stunnel -p x -k stunnel_exec
+        ## Cron configuration & scheduled jobs
+        -w /hostfs/etc/cron.allow -p wa -k cron
+        -w /hostfs/etc/cron.deny -p wa -k cron
+        -w /hostfs/etc/cron.d/ -p wa -k cron
+        -w /hostfs/etc/cron.daily/ -p wa -k cron
+        -w /hostfs/etc/cron.hourly/ -p wa -k cron
+        -w /hostfs/etc/cron.monthly/ -p wa -k cron
+        -w /hostfs/etc/cron.weekly/ -p wa -k cron
+        -w /hostfs/etc/crontab -p wa -k cron
+        -w /hostfs/var/spool/cron/ -p wa -k cron
+        ## User, group, password databases
+        -w /hostfs/etc/group -p wa -k etcgroup
+        -w /hostfs/etc/passwd -p wa -k etcpasswd
+        -w /hostfs/etc/gshadow -k etcgroup
+        -w /hostfs/etc/shadow -k etcpasswd
+        -w /hostfs/etc/security/opasswd -k opasswd
+        ## Sudoers file changes
+        -w /hostfs/etc/sudoers -p wa -k actions
+        -w /hostfs/etc/sudoers.d/ -p wa -k actions
+        ## Passwd
+        -w /hostfs/usr/bin/passwd -p x -k passwd_modification_exec
+        -w /hostfs/bin/passwd -p x -k passwd_modification_exec
+        -w /hostfs/usr/sbin/passwd -p x -k passwd_modification_exec
+        -w /hostfs/usr/local/sbin/passwd -p x -k passwd_modification_exec
+        -w /hostfs/usr/local/bin/passwd -p x -k passwd_modification_exec
+        ## Tools to change group identifiers
+        -w /hostfs/usr/bin/groupadd -p x -k group_modification_exec
+        -w /hostfs/bin/groupadd -p x -k group_modification_exec
+        -w /hostfs/usr/sbin/groupadd -p x -k group_modification_exec
+        -w /hostfs/usr/local/sbin/groupadd -p x -k group_modification_exec
+        -w /hostfs/usr/local/bin/groupadd -p x -k group_modification_exec
+        -w /hostfs/usr/bin/groupmod -p x -k group_modification_exec
+        -w /hostfs/bin/groupmod -p x -k group_modification_exec
+        -w /hostfs/usr/sbin/groupmod -p x -k group_modification_exec
+        -w /hostfs/usr/local/sbin/groupmod -p x -k group_modification_exec
+        -w /hostfs/usr/local/bin/groupmod -p x -k group_modification_exec
+        -w /hostfs/usr/bin/addgroup -p x -k group_modification_exec
+        -w /hostfs/bin/addgroup -p x -k group_modification_exec
+        -w /hostfs/usr/sbin/addgroup -p x -k group_modification_exec
+        -w /hostfs/usr/local/sbin/addgroup -p x -k group_modification_exec
+        -w /hostfs/usr/local/bin/addgroup -p x -k group_modification_exec
+        -w /hostfs/usr/bin/useradd -p x -k user_modification_exec
+        -w /hostfs/bin/useradd -p x -k user_modification_exec
+        -w /hostfs/usr/sbin/useradd -p x -k user_modification_exec
+        -w /hostfs/usr/local/sbin/useradd -p x -k user_modification_exec
+        -w /hostfs/usr/local/bin/useradd -p x -k user_modification_exec
+        -w /hostfs/usr/bin/userdel -p x -k user_modification_exec
+        -w /hostfs/bin/userdel -p x -k user_modification_exec
+        -w /hostfs/usr/sbin/userdel -p x -k user_modification_exec
+        -w /hostfs/usr/local/sbin/userdel -p x -k user_modification_exec
+        -w /hostfs/usr/local/bin/userdel -p x -k user_modification_exec
+        -w /hostfs/usr/bin/usermod -p x -k user_modification_exec
+        -w /hostfs/bin/usermod -p x -k user_modification_exec
+        -w /hostfs/usr/sbin/usermod -p x -k user_modification_exec
+        -w /hostfs/usr/local/sbin/usermod -p x -k user_modification_exec
+        -w /hostfs/usr/local/bin/usermod -p x -k user_modification_exec
+        -w /hostfs/usr/bin/adduser -p x -k user_modification_exec
+        -w /hostfs/bin/adduser -p x -k user_modification_exec
+        -w /hostfs/usr/sbin/adduser -p x -k user_modification_exec
+        -w /hostfs/usr/local/sbin/adduser -p x -k user_modification_exec
+        -w /hostfs/usr/local/bin/adduser -p x -k user_modification_exec
+        ## Login configuration and information
+        -w /hostfs/etc/login.defs -p wa -k login
+        -w /hostfs/etc/securetty -p wa -k login
+        -w /hostfs/var/log/faillog -p wa -k login
+        -w /hostfs/var/log/lastlog -p wa -k login
+        -w /hostfs/var/log/tallylog -p wa -k login
+        ## Network Environment
+        ### Changes to hostname
+        -a always,exit -F arch=b64 -S sethostname -S setdomainname -k network_modifications
+        ### Detect Remote Shell Use
+        -a always,exit -F arch=b64 -F exe=/hostfs/bin/bash -F success=1 -S connect -k remote_shell
+        -a always,exit -F arch=b64 -F exe=/hostfs/usr/bin/bash -F success=1 -S connect -k remote_shell
+        ### Changes to other files
+        -w /hostfs/etc/hosts -p wa -k network_modifications
+        -w /hostfs/etc/sysconfig/network -p wa -k network_modifications
+        -w /hostfs/etc/sysconfig/network-scripts -p w -k network_modifications
+        -w /hostfs/etc/network/ -p wa -k network
+        -a always,exit -F dir=/hostfs/etc/NetworkManager/ -F perm=wa -k network_modifications
+        ### Changes to issue
+        -w /hostfs/etc/issue -p wa -k etcissue
+        -w /hostfs/etc/issue.net -p wa -k etcissue
+        ## System startup scripts
+        -w /hostfs/etc/inittab -p wa -k init
+        -w /hostfs/etc/init.d/ -p wa -k init
+        -w /hostfs/etc/init/ -p wa -k init
+        -w /hostfs/etc/rc.d/ -p wa -k init
+        -w /hostfs/etc/rc.local -p wa -k init
+        -w /hostfs/etc/rc.common -p wa -k init
+        ## Library search paths
+        -w /hostfs/etc/ld.so.conf -p wa -k libpath
+        -w /hostfs/etc/ld.so.conf.d -p wa -k libpath
+        ## Systemwide library preloads (LD_PRELOAD)
+        -w /hostfs/etc/ld.so.preload -p wa -k systemwide_preloads
+        ## Pam configuration
+        -w /hostfs/etc/pam.d/ -p wa -k pam
+        -w /hostfs/etc/security/limits.conf -p wa  -k pam
+        -w /hostfs/etc/security/limits.d -p wa  -k pam
+        -w /hostfs/etc/security/pam_env.conf -p wa -k pam
+        -w /hostfs/etc/security/namespace.conf -p wa -k pam
+        -w /hostfs/etc/security/namespace.d -p wa -k pam
+        -w /hostfs/etc/security/namespace.init -p wa -k pam
+        ## Mail configuration
+        -w /hostfs/etc/aliases -p wa -k mail
+        -w /hostfs/etc/postfix/ -p wa -k mail
+        -w /hostfs/etc/exim4/ -p wa -k mail
+        ## SSH configuration
+        -w /hostfs/etc/ssh/sshd_config -k sshd
+        -w /hostfs/etc/ssh/sshd_config.d -k sshd
+        ## root ssh key tampering
+        -w /hostfs/root/.ssh -p wa -k rootkey
+        # Systemd
+        -w /hostfs/usr/bin/systemctl -p x -k systemctl_command_exec
+        -w /hostfs/bin/systemctl -p x -k systemctl_command_exec
+        -w /hostfs/usr/sbin/systemctl -p x -k systemctl_command_exec
+        -w /hostfs/usr/local/sbin/systemctl -p x -k systemctl_command_exec
+        -w /hostfs/usr/local/bin/systemctl -p x -k systemctl_command_exec
+        -w /hostfs/etc/systemd/ -p wa -k systemd
+        -w /hostfs/run/systemd/ -p wa -k systemd
+        -w /hostfs/usr/lib/systemd -p wa -k systemd
+        ## <https://systemd.network/systemd.generator.html>
+        -w /hostfs/etc/systemd/system-generators/ -p wa -k systemd_generator
+        -w /hostfs/usr/local/lib/systemd/system-generators/ -p wa -k systemd_generator
+        -w /hostfs/usr/lib/systemd/system-generators -p wa -k systemd_generator
+        -w /hostfs/etc/systemd/user-generators/ -p wa -k systemd_generator
+        -w /hostfs/usr/local/lib/systemd/user-generators/ -p wa -k systemd_generator
+        -w /hostfs/lib/systemd/system-generators/ -p wa -k systemd_generator
+        ## SELinux events that modify the system's Mandatory Access Controls (MAC)
+        -w /hostfs/etc/selinux/ -p wa -k selinux_config_delete_or_edit
+        -w /hostfs/etc/sysconfig/selinux -p wa -k selinux_config_delete_or_edit 
+        -w /hostfs/selinux/enforce -p wa -k selinux_config_delete_or_edit 
+        -w /hostfs/etc/selinux/config -p wa -k selinux_config_delete_or_edit 
+        ## Critical elements access failures
+        -a always,exit -F arch=b64 -S open -F dir=/hostfs/etc -F success=0 -k unauthedfileaccess
+        -a always,exit -F arch=b64 -S open -F dir=/hostfs/bin -F success=0 -k unauthedfileaccess
+        -a always,exit -F arch=b64 -S open -F dir=/hostfs/sbin -F success=0 -k unauthedfileaccess
+        -a always,exit -F arch=b64 -S open -F dir=/hostfs/usr/bin -F success=0 -k unauthedfileaccess
+        -a always,exit -F arch=b64 -S open -F dir=/hostfs/usr/sbin -F success=0 -k unauthedfileaccess
+        -a always,exit -F arch=b64 -S open -F dir=/hostfs/var -F success=0 -k unauthedfileaccess
+        -a always,exit -F arch=b64 -S open -F dir=/hostfs/home -F success=0 -k unauthedfileaccess
+        -a always,exit -F arch=b64 -S open -F dir=/hostfs/srv -F success=0 -k unauthedfileaccess
+        ## Process ID change (switching accounts) applications
+        -w /hostfs/usr/bin/su -p x -k priv_esc_exec
+        -w /hostfs/bin/su -p x -k priv_esc_exec
+        -w /hostfs/usr/sbin/su -p x -k priv_esc_exec
+        -w /hostfs/usr/local/sbin/su -p x -k priv_esc_exec
+        -w /hostfs/usr/local/bin/su -p x -k priv_esc_exec
+        -w /hostfs/usr/bin/sudo -p x -k priv_esc_exec
+        -w /hostfs/bin/sudo -p x -k priv_esc_exec
+        -w /hostfs/usr/sbin/sudo -p x -k priv_esc_exec
+        -w /hostfs/usr/local/sbin/sudo -p x -k priv_esc_exec
+        -w /hostfs/usr/local/bin/sudo -p x -k priv_esc_exec
+        ## Power state
+        -w /hostfs/usr/bin/shutdown -p x -k power_exec
+        -w /hostfs/bin/shutdown -p x -k power_exec
+        -w /hostfs/usr/sbin/shutdown -p x -k power_exec
+        -w /hostfs/usr/local/sbin/shutdown -p x -k power_exec
+        -w /hostfs/usr/local/bin/shutdown -p x -k power_exec
+        -w /hostfs/usr/bin/poweroff -p x -k power_exec
+        -w /hostfs/bin/poweroff -p x -k power_exec
+        -w /hostfs/usr/sbin/poweroff -p x -k power_exec
+        -w /hostfs/usr/local/sbin/poweroff -p x -k power_exec
+        -w /hostfs/usr/local/bin/poweroff -p x -k power_exec
+        -w /hostfs/usr/bin/reboot -p x -k power_exec
+        -w /hostfs/bin/reboot -p x -k power_exec
+        -w /hostfs/usr/sbin/reboot -p x -k power_exec
+        -w /hostfs/usr/local/sbin/reboot -p x -k power_exec
+        -w /hostfs/usr/local/bin/reboot -p x -k power_exec
+        -w /hostfs/usr/bin/halt -p x -k power_exec
+        -w /hostfs/bin/halt -p x -k power_exec
+        -w /hostfs/usr/sbin/halt -p x -k power_exec
+        -w /hostfs/usr/local/sbin/halt -p x -k power_exec
+        -w /hostfs/usr/local/bin/halt -p x -k power_exec
+        ## Session initiation information
+        -w /hostfs/var/run/utmp -p wa -k session
+        -w /hostfs/var/log/btmp -p wa -k session
+        -w /hostfs/var/log/wtmp -p wa -k session
+        ## Discretionary Access Control (DAC) modifications
+        -a always,exit -F arch=b64 -S chmod  -F auid>=1000 -F auid!=-1 -k perm_mod
+        -a always,exit -F arch=b64 -S chown -F auid>=1000 -F auid!=-1 -k perm_mod
+        -a always,exit -F arch=b64 -S fchmod -F auid>=1000 -F auid!=-1 -k perm_mod
+        -a always,exit -F arch=b64 -S fchmodat -F auid>=1000 -F auid!=-1 -k perm_mod
+        -a always,exit -F arch=b64 -S fchown -F auid>=1000 -F auid!=-1 -k perm_mod
+        -a always,exit -F arch=b64 -S fchownat -F auid>=1000 -F auid!=-1 -k perm_mod
+        -a always,exit -F arch=b64 -S fremovexattr -F auid>=1000 -F auid!=-1 -k perm_mod
+        -a always,exit -F arch=b64 -S fsetxattr -F auid>=1000 -F auid!=-1 -k perm_mod
+        -a always,exit -F arch=b64 -S lchown -F auid>=1000 -F auid!=-1 -k perm_mod
+        -a always,exit -F arch=b64 -S lremovexattr -F auid>=1000 -F auid!=-1 -k perm_mod
+        -a always,exit -F arch=b64 -S lsetxattr -F auid>=1000 -F auid!=-1 -k perm_mod
+        -a always,exit -F arch=b64 -S removexattr -F auid>=1000 -F auid!=-1 -k perm_mod
+        -a always,exit -F arch=b64 -S setxattr -F auid>=1000 -F auid!=-1 -k perm_mod
+        # Special Rules ---------------------------------------------------------------
+        ## Reconnaissance
+        -w /hostfs/usr/bin/whoami -p x -k recon_exec
+        -w /hostfs/bin/whoami -p x -k recon_exec
+        -w /hostfs/usr/sbin/whoami -p x -k recon_exec
+        -w /hostfs/usr/local/sbin/whoami -p x -k recon_exec
+        -w /hostfs/usr/local/bin/whoami -p x -k recon_exec
+        -w /hostfs/usr/bin/id -p x -k recon_exec
+        -w /hostfs/bin/id -p x -k recon_exec
+        -w /hostfs/usr/sbin/id -p x -k recon_exec
+        -w /hostfs/usr/local/sbin/id -p x -k recon_exec
+        -w /hostfs/usr/local/bin/id -p x -k recon_exec
+        -w /hostfs/usr/bin/hostname -p x -k recon_exec
+        -w /hostfs/bin/hostname -p x -k recon_exec
+        -w /hostfs/usr/sbin/hostname -p x -k recon_exec
+        -w /hostfs/usr/local/sbin/hostname -p x -k recon_exec
+        -w /hostfs/usr/local/bin/hostname -p x -k recon_exec
+        -w /hostfs/usr/bin/uname -p x -k recon_exec
+        -w /hostfs/bin/uname -p x -k recon_exec
+        -w /hostfs/usr/sbin/uname -p x -k recon_exec
+        -w /hostfs/usr/local/sbin/uname -p x -k recon_exec
+        -w /hostfs/usr/local/bin/uname -p x -k recon_exec
+        -w /hostfs/etc/issue -p r -k recon
+        -w /hostfs/etc/hostname -p r -k recon
+        ## Suspicious activity
+        -w /hostfs/usr/bin/wget -p x -k susp_activity_exec
+        -w /hostfs/bin/wget -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/wget -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/wget -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/wget -p x -k susp_activity_exec
+        -w /hostfs/usr/bin/curl -p x -k susp_activity_exec
+        -w /hostfs/bin/curl -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/curl -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/curl -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/curl -p x -k susp_activity_exec
+        -w /hostfs/usr/bin/base64 -p x -k susp_activity_exec
+        -w /hostfs/bin/base64 -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/base64 -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/base64 -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/base64 -p x -k susp_activity_exec
+        -w /hostfs/usr/bin/nc -p x -k susp_activity_exec
+        -w /hostfs/bin/nc -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/nc -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/nc -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/nc -p x -k susp_activity_exec
+        -w /hostfs/usr/bin/netcat -p x -k susp_activity_exec
+        -w /hostfs/bin/netcat -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/netcat -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/netcat -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/netcat -p x -k susp_activity_exec
+        -w /hostfs/usr/bin/ncat -p x -k susp_activity_exec
+        -w /hostfs/bin/ncat -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/ncat -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/ncat -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/ncat -p x -k susp_activity_exec
+        -w /hostfs/usr/bin/ss -p x -k susp_activity_exec
+        -w /hostfs/bin/ss -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/ss -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/ss -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/ss -p x -k susp_activity_exec
+        -w /hostfs/usr/bin/netstat -p x -k susp_activity_exec
+        -w /hostfs/bin/netstat -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/netstat -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/netstat -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/netstat -p x -k susp_activity_exec
+        -w /hostfs/usr/bin/ssh -p x -k susp_activity_exec
+        -w /hostfs/bin/ssh -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/ssh -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/ssh -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/ssh -p x -k susp_activity_exec
+        -w /hostfs/usr/bin/scp -p x -k susp_activity_exec
+        -w /hostfs/bin/scp -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/scp -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/scp -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/scp -p x -k susp_activity_exec
+        -w /hostfs/usr/bin/sftp -p x -k susp_activity_exec
+        -w /hostfs/bin/sftp -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/sftp -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/sftp -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/sftp -p x -k susp_activity_exec
+        -w /hostfs/usr/bin/ftp -p x -k susp_activity_exec
+        -w /hostfs/bin/ftp -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/ftp -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/ftp -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/ftp -p x -k susp_activity_exec
+        -w /hostfs/usr/bin/socat -p x -k susp_activity_exec
+        -w /hostfs/bin/socat -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/socat -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/socat -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/socat -p x -k susp_activity_exec
+        -w /hostfs/usr/bin/wireshark -p x -k susp_activity_exec
+        -w /hostfs/bin/wireshark -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/wireshark -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/wireshark -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/wireshark -p x -k susp_activity_exec
+        -w /hostfs/usr/bin/tshark -p x -k susp_activity_exec
+        -w /hostfs/bin/tshark -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/tshark -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/tshark -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/tshark -p x -k susp_activity_exec
+        -w /hostfs/usr/bin/rawshark -p x -k susp_activity_exec
+        -w /hostfs/bin/rawshark -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/rawshark -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/rawshark -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/rawshark -p x -k susp_activity_exec
+        -w /hostfs/usr/bin/rdesktop -p x -k susp_activity_exec
+        -w /hostfs/bin/rdesktop -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/rdesktop -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/rdesktop -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/rdesktop -p x -k susp_activity_exec
+        -w /hostfs/usr/bin/wlfreerdp -p x -k susp_activity_exec
+        -w /hostfs/bin/wlfreerdp -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/wlfreerdp -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/wlfreerdp -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/wlfreerdp -p x -k susp_activity_exec
+        -w /hostfs/usr/bin/xfreerdp -p x -k susp_activity_exec
+        -w /hostfs/bin/xfreerdp -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/xfreerdp -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/xfreerdp -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/xfreerdp -p x -k susp_activity_exec
+        -w /hostfs/usr/bin/nmap -p x -k susp_activity_exec
+        -w /hostfs/bin/nmap -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/nmap -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/nmap -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/nmap -p x -k susp_activity_exec
+        ### uftp
+        ### <https://sourceforge.net/projects/uftp-multicast/>
+        ### UFTP is an encrypted multicast file transfer program, designed to securely, reliably, 
+        ### and efficiently transfer files to multiple receivers simultaneously.
+        ### FTP also has the capability to communicate over disjoint networks separated by one or 
+        ### more firewalls (NAT traversal) and without full end-to-end multicast capability 
+        ### (multicast tunneling) through the use of a UFTP proxy server.
+        ### T1133_External_Remote_Services
+        -w /hostfs/usr/bin/uftp -p x -k susp_activity_exec
+        -w /hostfs/bin/uftp -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/uftp -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/uftp -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/uftp -p x -k susp_activity_exec
+        -w /hostfs/lib/systemd/system/uftp.service -k susp_activity
+        -w /hostfs/usr/lib/systemd/system/uftp.service -k susp_activity
+        ### atftpd
+        ### <https://sourceforge.net/projects/atftp/>
+        ### <https://github.com/madmartin/atftp>
+        ### atftp is a client/server implementation of the TFTP protocol that implements RFCs 1350, 2090, 2347, 2348, 2349 and 7440. 
+        ### The server is multi-threaded and the client presents a friendly interface using libreadline.
+        -w /hostfs/usr/bin/atftpd -p x -k susp_activity_exec
+        -w /hostfs/bin/atftpd -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/atftpd -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/atftpd -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/atftpd -p x -k susp_activity_exec
+        -w /hostfs/usr/bin/in.tftpd -p x -k susp_activity_exec
+        -w /hostfs/bin/in.tftpd -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/in.tftpd -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/in.tftpd -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/in.tftpd -p x -k susp_activity_exec
+        -w /hostfs/lib/systemd/system/atftpd.service -k susp_activity
+        -w /hostfs/usr/lib/systemd/system/atftpd.service -k susp_activity
+        -w /hostfs/lib/systemd/system/atftpd.socket -k susp_activity
+        -w /hostfs/usr/lib/systemd/system/atftpd.socket -k susp_activity
+        ## Krb5
+        -a always,exit -F dir=/hostfs/etc/krb5 -F perm=wa -k krb5_config
+        ## sssd
+        -a always,exit -F path=/hostfs/usr/libexec/sssd/p11_child -F perm=x -F auid>=500 -F auid!=4294967295 -k T1078_Valid_Accounts
+        -a always,exit -F path=/hostfs/usr/libexec/sssd/krb5_child -F perm=x -F auid>=500 -F auid!=4294967295 -k T1078_Valid_Accounts
+        -a always,exit -F path=/hostfs/usr/libexec/sssd/ldap_child -F perm=x -F auid>=500 -F auid!=4294967295 -k T1078_Valid_Accounts
+        -a always,exit -F path=/hostfs/usr/libexec/sssd/selinux_child -F perm=x -F auid>=500 -F auid!=4294967295 -k T1078_Valid_Accounts
+        -a always,exit -F path=/hostfs/usr/libexec/sssd/proxy_child -F perm=x -F auid>=500 -F auid!=4294967295 -k T1078_Valid_Accounts
+        ## vte-2.91
+        -a always,exit -F path=/hostfs/lib64/vte-2.91/gnome-pty-helper -F perm=x -F auid>=500 -F auid!=4294967295 -k T1078_Valid_Accounts
+        -a always,exit -F path=/hostfs/usr/lib64/vte-2.91/gnome-pty-helper -F perm=x -F auid>=500 -F auid!=4294967295 -k T1078_Valid_Accounts
+        ## T1002 Data Compressed
+        -w /hostfs/usr/bin/zip -p x -k Data_Compressed_exec
+        -w /hostfs/bin/zip -p x -k Data_Compressed_exec
+        -w /hostfs/usr/sbin/zip -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/sbin/zip -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/bin/zip -p x -k Data_Compressed_exec
+        -w /hostfs/usr/bin/gzip -p x -k Data_Compressed_exec
+        -w /hostfs/bin/gzip -p x -k Data_Compressed_exec
+        -w /hostfs/usr/sbin/gzip -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/sbin/gzip -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/bin/gzip -p x -k Data_Compressed_exec
+        -w /hostfs/usr/bin/tar -p x -k Data_Compressed_exec
+        -w /hostfs/bin/tar -p x -k Data_Compressed_exec
+        -w /hostfs/usr/sbin/tar -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/sbin/tar -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/bin/tar -p x -k Data_Compressed_exec
+        -w /hostfs/usr/bin/bzip2 -p x -k Data_Compressed_exec
+        -w /hostfs/bin/bzip2 -p x -k Data_Compressed_exec
+        -w /hostfs/usr/sbin/bzip2 -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/sbin/bzip2 -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/bin/bzip2 -p x -k Data_Compressed_exec
+        -w /hostfs/usr/bin/lzip -p x -k Data_Compressed_exec
+        -w /hostfs/bin/lzip -p x -k Data_Compressed_exec
+        -w /hostfs/usr/sbin/lzip -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/sbin/lzip -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/bin/lzip -p x -k Data_Compressed_exec
+        -w /hostfs/usr/bin/lz4 -p x -k Data_Compressed_exec
+        -w /hostfs/bin/lz4 -p x -k Data_Compressed_exec
+        -w /hostfs/usr/sbin/lz4 -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/sbin/lz4 -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/bin/lz4 -p x -k Data_Compressed_exec
+        -w /hostfs/usr/bin/lzop -p x -k Data_Compressed_exec
+        -w /hostfs/bin/lzop -p x -k Data_Compressed_exec
+        -w /hostfs/usr/sbin/lzop -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/sbin/lzop -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/bin/lzop -p x -k Data_Compressed_exec
+        -w /hostfs/usr/bin/plzip -p x -k Data_Compressed_exec
+        -w /hostfs/bin/plzip -p x -k Data_Compressed_exec
+        -w /hostfs/usr/sbin/plzip -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/sbin/plzip -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/bin/plzip -p x -k Data_Compressed_exec
+        -w /hostfs/usr/bin/pbzip2 -p x -k Data_Compressed_exec
+        -w /hostfs/bin/pbzip2 -p x -k Data_Compressed_exec
+        -w /hostfs/usr/sbin/pbzip2 -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/sbin/pbzip2 -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/bin/pbzip2 -p x -k Data_Compressed_exec
+        -w /hostfs/usr/bin/lbzip2 -p x -k Data_Compressed_exec
+        -w /hostfs/bin/lbzip2 -p x -k Data_Compressed_exec
+        -w /hostfs/usr/sbin/lbzip2 -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/sbin/lbzip2 -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/bin/lbzip2 -p x -k Data_Compressed_exec
+        -w /hostfs/usr/bin/pixz -p x -k Data_Compressed_exec
+        -w /hostfs/bin/pixz -p x -k Data_Compressed_exec
+        -w /hostfs/usr/sbin/pixz -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/sbin/pixz -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/bin/pixz -p x -k Data_Compressed_exec
+        -w /hostfs/usr/bin/pigz -p x -k Data_Compressed_exec
+        -w /hostfs/bin/pigz -p x -k Data_Compressed_exec
+        -w /hostfs/usr/sbin/pigz -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/sbin/pigz -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/bin/pigz -p x -k Data_Compressed_exec
+        -w /hostfs/usr/bin/unpigz -p x -k Data_Compressed_exec
+        -w /hostfs/bin/unpigz -p x -k Data_Compressed_exec
+        -w /hostfs/usr/sbin/unpigz -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/sbin/unpigz -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/bin/unpigz -p x -k Data_Compressed_exec
+        -w /hostfs/usr/bin/zstd -p x -k Data_Compressed_exec
+        -w /hostfs/bin/zstd -p x -k Data_Compressed_exec
+        -w /hostfs/usr/sbin/zstd -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/sbin/zstd -p x -k Data_Compressed_exec
+        -w /hostfs/usr/local/bin/zstd -p x -k Data_Compressed_exec
+        -a always,exit -F arch=b32 -F path=/hostfs/usr/bin/gzexe -F perm=x -F key=Data_Compressed
+        -a always,exit -F arch=b32 -F path=/hostfs/usr/sbin/gzexe -F perm=x -F key=Data_Compressed
+        -a always,exit -F arch=b32 -F path=/hostfs/usr/local/bin/gzexe -F perm=x -F key=Data_Compressed
+        -a always,exit -F arch=b32 -F path=/hostfs/usr/bin/dact -F perm=x -F key=Data_Compressed
+        -a always,exit -F arch=b32 -F path=/hostfs/usr/sbin/dact -F perm=x -F key=Data_Compressed
+        -a always,exit -F arch=b32 -F path=/hostfs/usr/local/bin/dact -F perm=x -F key=Data_Compressed
+        ## gzexe
+        -a always,exit -F arch=b64 -F path=/hostfs/usr/bin/gzexe -F perm=x -F key=Data_Compressed
+        -a always,exit -F arch=b64 -F path=/hostfs/usr/sbin/gzexe -F perm=x -F key=Data_Compressed
+        ### macOS
+        -a always,exit -F arch=b64 -F path=/hostfs/usr/local/bin/gzexe -F perm=x -F key=Data_Compressed
+        ### <https://www.rkeene.org/oss/dact>
+        -a always,exit -F arch=b64 -F path=/hostfs/usr/bin/dact -F perm=x -F key=Data_Compressed
+        -a always,exit -F arch=b64 -F path=/hostfs/usr/sbin/dact -F perm=x -F key=Data_Compressed
+        -a always,exit -F arch=b64 -F path=/hostfs/usr/local/bin/dact -F perm=x -F key=Data_Compressed
+        ## Added to catch netcat on Ubuntu
+        -w /hostfs/usr/bin/nc.openbsd -p x -k susp_activity_exec
+        -w /hostfs/bin/nc.openbsd -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/nc.openbsd -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/nc.openbsd -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/nc.openbsd -p x -k susp_activity_exec
+        -w /hostfs/usr/bin/nc.traditional -p x -k susp_activity_exec
+        -w /hostfs/bin/nc.traditional -p x -k susp_activity_exec
+        -w /hostfs/usr/sbin/nc.traditional -p x -k susp_activity_exec
+        -w /hostfs/usr/local/sbin/nc.traditional -p x -k susp_activity_exec
+        -w /hostfs/usr/local/bin/nc.traditional -p x -k susp_activity_exec
+        ## Sbin suspicious activity
+        -w /hostfs/usr/bin/iptables -p x -k sbin_susp_exec
+        -w /hostfs/bin/iptables -p x -k sbin_susp_exec
+        -w /hostfs/usr/sbin/iptables -p x -k sbin_susp_exec
+        -w /hostfs/usr/local/sbin/iptables -p x -k sbin_susp_exec
+        -w /hostfs/usr/local/bin/iptables -p x -k sbin_susp_exec
+        -w /hostfs/usr/bin/ip6tables -p x -k sbin_susp_exec
+        -w /hostfs/bin/ip6tables -p x -k sbin_susp_exec
+        -w /hostfs/usr/sbin/ip6tables -p x -k sbin_susp_exec
+        -w /hostfs/usr/local/sbin/ip6tables -p x -k sbin_susp_exec
+        -w /hostfs/usr/local/bin/ip6tables -p x -k sbin_susp_exec
+        -w /hostfs/usr/bin/ifconfig -p x -k sbin_susp_exec
+        -w /hostfs/bin/ifconfig -p x -k sbin_susp_exec
+        -w /hostfs/usr/sbin/ifconfig -p x -k sbin_susp_exec
+        -w /hostfs/usr/local/sbin/ifconfig -p x -k sbin_susp_exec
+        -w /hostfs/usr/local/bin/ifconfig -p x -k sbin_susp_exec
+        -w /hostfs/usr/bin/arptables -p x -k sbin_susp_exec
+        -w /hostfs/bin/arptables -p x -k sbin_susp_exec
+        -w /hostfs/usr/sbin/arptables -p x -k sbin_susp_exec
+        -w /hostfs/usr/local/sbin/arptables -p x -k sbin_susp_exec
+        -w /hostfs/usr/local/bin/arptables -p x -k sbin_susp_exec
+        -w /hostfs/usr/bin/ebtables -p x -k sbin_susp_exec
+        -w /hostfs/bin/ebtables -p x -k sbin_susp_exec
+        -w /hostfs/usr/sbin/ebtables -p x -k sbin_susp_exec
+        -w /hostfs/usr/local/sbin/ebtables -p x -k sbin_susp_exec
+        -w /hostfs/usr/local/bin/ebtables -p x -k sbin_susp_exec
+        -w /hostfs/usr/bin/xtables-nft-multi -p x -k sbin_susp_exec
+        -w /hostfs/bin/xtables-nft-multi -p x -k sbin_susp_exec
+        -w /hostfs/usr/sbin/xtables-nft-multi -p x -k sbin_susp_exec
+        -w /hostfs/usr/local/sbin/xtables-nft-multi -p x -k sbin_susp_exec
+        -w /hostfs/usr/local/bin/xtables-nft-multi -p x -k sbin_susp_exec
+        -w /hostfs/usr/bin/nft -p x -k sbin_susp_exec
+        -w /hostfs/bin/nft -p x -k sbin_susp_exec
+        -w /hostfs/usr/sbin/nft -p x -k sbin_susp_exec
+        -w /hostfs/usr/local/sbin/nft -p x -k sbin_susp_exec
+        -w /hostfs/usr/local/bin/nft -p x -k sbin_susp_exec
+        -w /hostfs/usr/bin/tcpdump -p x -k sbin_susp_exec
+        -w /hostfs/bin/tcpdump -p x -k sbin_susp_exec
+        -w /hostfs/usr/sbin/tcpdump -p x -k sbin_susp_exec
+        -w /hostfs/usr/local/sbin/tcpdump -p x -k sbin_susp_exec
+        -w /hostfs/usr/local/bin/tcpdump -p x -k sbin_susp_exec
+        -w /hostfs/usr/bin/traceroute -p x -k sbin_susp_exec
+        -w /hostfs/bin/traceroute -p x -k sbin_susp_exec
+        -w /hostfs/usr/sbin/traceroute -p x -k sbin_susp_exec
+        -w /hostfs/usr/local/sbin/traceroute -p x -k sbin_susp_exec
+        -w /hostfs/usr/local/bin/traceroute -p x -k sbin_susp_exec
+        -w /hostfs/usr/bin/ufw -p x -k sbin_susp_exec
+        -w /hostfs/bin/ufw -p x -k sbin_susp_exec
+        -w /hostfs/usr/sbin/ufw -p x -k sbin_susp_exec
+        -w /hostfs/usr/local/sbin/ufw -p x -k sbin_susp_exec
+        -w /hostfs/usr/local/bin/ufw -p x -k sbin_susp_exec
+        ### kde4
+        -a always,exit -F path=/hostfs/usr/libexec/kde4/kpac_dhcp_helper -F perm=x -F auid>=1000 -F auid!=4294967295 -k T1078_Valid_Accounts
+        -a always,exit -F path=/hostfs/usr/libexec/kde4/kdesud -F perm=x -F auid>=1000 -F auid!=4294967295 -k T1078_Valid_Accounts
+        ## dbus-send invocation
+        ### may indicate privilege escalation CVE-2021-3560
+        -w /hostfs/usr/bin/dbus-send -p x -k dbus_send_exec
+        -w /hostfs/bin/dbus-send -p x -k dbus_send_exec
+        -w /hostfs/usr/sbin/dbus-send -p x -k dbus_send_exec
+        -w /hostfs/usr/local/sbin/dbus-send -p x -k dbus_send_exec
+        -w /hostfs/usr/local/bin/dbus-send -p x -k dbus_send_exec
+        -w /hostfs/usr/bin/gdbus -p x -k gdubs_call_exec
+        -w /hostfs/bin/gdbus -p x -k gdubs_call_exec
+        -w /hostfs/usr/sbin/gdbus -p x -k gdubs_call_exec
+        -w /hostfs/usr/local/sbin/gdbus -p x -k gdubs_call_exec
+        -w /hostfs/usr/local/bin/gdbus -p x -k gdubs_call_exec
+        ## setfiles
+        -a always,exit -F path=/hostfs/usr/bin/setfiles -F perm=x -F auid>=500 -F auid!=4294967295 -k -F T1078_Valid_Accounts
+        -a always,exit -F path=/hostfs/usr/sbin/setfiles -F perm=x -F auid>=500 -F auid!=4294967295 -k -F T1078_Valid_Accounts
+        ### dbus
+        -a always,exit -F path=/hostfs/lib64/dbus-1/dbus-daemon-launch-helper -F perm=x -F auid>=500 -F auid!=4294967295 -k T1078_Valid_Accounts
+        -a always,exit -F path=/hostfs/usr/lib64/dbus-1/dbus-daemon-launch-helper -F perm=x -F auid>=500 -F auid!=4294967295 -k T1078_Valid_Accounts
+        ## pkexec invocation
+        ### may indicate privilege escalation CVE-2021-4034
+        -w /hostfs/usr/bin/pkexec -p x -k pkexec_exec
+        -w /hostfs/bin/pkexec -p x -k pkexec_exec
+        -w /hostfs/usr/sbin/pkexec -p x -k pkexec_exec
+        -w /hostfs/usr/local/sbin/pkexec -p x -k pkexec_exec
+        -w /hostfs/usr/local/bin/pkexec -p x -k pkexec_exec
+        ## Suspicious shells
+        -w /hostfs/usr/bin/ash -p x -k susp_shell_exec
+        -w /hostfs/bin/ash -p x -k susp_shell_exec
+        -w /hostfs/usr/sbin/ash -p x -k susp_shell_exec
+        -w /hostfs/usr/local/sbin/ash -p x -k susp_shell_exec
+        -w /hostfs/usr/local/bin/ash -p x -k susp_shell_exec
+        -w /hostfs/usr/bin/csh -p x -k susp_shell_exec
+        -w /hostfs/bin/csh -p x -k susp_shell_exec
+        -w /hostfs/usr/sbin/csh -p x -k susp_shell_exec
+        -w /hostfs/usr/local/sbin/csh -p x -k susp_shell_exec
+        -w /hostfs/usr/local/bin/csh -p x -k susp_shell_exec
+        -w /hostfs/usr/bin/fish -p x -k susp_shell_exec
+        -w /hostfs/bin/fish -p x -k susp_shell_exec
+        -w /hostfs/usr/sbin/fish -p x -k susp_shell_exec
+        -w /hostfs/usr/local/sbin/fish -p x -k susp_shell_exec
+        -w /hostfs/usr/local/bin/fish -p x -k susp_shell_exec
+        -w /hostfs/usr/bin/tcsh -p x -k susp_shell_exec
+        -w /hostfs/bin/tcsh -p x -k susp_shell_exec
+        -w /hostfs/usr/sbin/tcsh -p x -k susp_shell_exec
+        -w /hostfs/usr/local/sbin/tcsh -p x -k susp_shell_exec
+        -w /hostfs/usr/local/bin/tcsh -p x -k susp_shell_exec
+        -w /hostfs/usr/bin/tclsh -p x -k susp_shell_exec
+        -w /hostfs/bin/tclsh -p x -k susp_shell_exec
+        -w /hostfs/usr/sbin/tclsh -p x -k susp_shell_exec
+        -w /hostfs/usr/local/sbin/tclsh -p x -k susp_shell_exec
+        -w /hostfs/usr/local/bin/tclsh -p x -k susp_shell_exec
+        -w /hostfs/usr/bin/xonsh -p x -k susp_shell_exec
+        -w /hostfs/bin/xonsh -p x -k susp_shell_exec
+        -w /hostfs/usr/sbin/xonsh -p x -k susp_shell_exec
+        -w /hostfs/usr/local/sbin/xonsh -p x -k susp_shell_exec
+        -w /hostfs/usr/local/bin/xonsh -p x -k susp_shell_exec
+        -w /hostfs/usr/bin/open -p x -k susp_shell_exec
+        -w /hostfs/bin/open -p x -k susp_shell_exec
+        -w /hostfs/usr/sbin/open -p x -k susp_shell_exec
+        -w /hostfs/usr/local/sbin/open -p x -k susp_shell_exec
+        -w /hostfs/usr/local/bin/open -p x -k susp_shell_exec
+        -w /hostfs/usr/bin/rbash -p x -k susp_shell_exec
+        -w /hostfs/bin/rbash -p x -k susp_shell_exec
+        -w /hostfs/usr/sbin/rbash -p x -k susp_shell_exec
+        -w /hostfs/usr/local/sbin/rbash -p x -k susp_shell_exec
+        -w /hostfs/usr/local/bin/rbash -p x -k susp_shell_exec
+        ### <https://gtfobins.github.io/gtfobins/wish/>
+        -w /hostfs/usr/bin/wish -p x -k susp_shell_exec
+        -w /hostfs/bin/wish -p x -k susp_shell_exec
+        -w /hostfs/usr/sbin/wish -p x -k susp_shell_exec
+        -w /hostfs/usr/local/sbin/wish -p x -k susp_shell_exec
+        -w /hostfs/usr/local/bin/wish -p x -k susp_shell_exec
+        ### <https://gtfobins.github.io/gtfobins/yash/>
+        -w /hostfs/usr/bin/yash -p x -k susp_shell_exec
+        -w /hostfs/bin/yash -p x -k susp_shell_exec
+        -w /hostfs/usr/sbin/yash -p x -k susp_shell_exec
+        -w /hostfs/usr/local/sbin/yash -p x -k susp_shell_exec
+        -w /hostfs/usr/local/bin/yash -p x -k susp_shell_exec
+        # Web Server Activity
+        ## Change the number "33" to the ID of your WebServer user. Default: www-data:x:33:33
+        -a always,exit -F arch=b64 -S execve -F euid=33 -k detect_execve_www
+        ### <https://clustershell.readthedocs.io/>
+        -w /hostfs/usr/bin/clush -p x -k susp_shell_exec
+        -w /hostfs/bin/clush -p x -k susp_shell_exec
+        -w /hostfs/usr/sbin/clush -p x -k susp_shell_exec
+        -w /hostfs/usr/local/sbin/clush -p x -k susp_shell_exec
+        -w /hostfs/usr/local/bin/clush -p x -k susp_shell_exec
+        -w /hostfs/usr/bin/clush.conf -p x -k susp_shell_exec
+        -w /hostfs/bin/clush.conf -p x -k susp_shell_exec
+        -w /hostfs/usr/sbin/clush.conf -p x -k susp_shell_exec
+        -w /hostfs/usr/local/sbin/clush.conf -p x -k susp_shell_exec
+        -w /hostfs/usr/local/bin/clush.conf -p x -k susp_shell_exec
+        ### <https://github.com/tmux/tmux>
+        -w /hostfs/usr/bin/tmux -p x -k susp_shell_exec
+        -w /hostfs/bin/tmux -p x -k susp_shell_exec
+        -w /hostfs/usr/sbin/tmux -p x -k susp_shell_exec
+        -w /hostfs/usr/local/sbin/tmux -p x -k susp_shell_exec
+        -w /hostfs/usr/local/bin/tmux -p x -k susp_shell_exec
+        ## Shell/profile configurations
+        -w /hostfs/etc/profile.d/ -p wa -k shell_profiles
+        -w /hostfs/etc/profile -p wa -k shell_profiles
+        -w /hostfs/etc/shells -p wa -k shell_profiles
+        -w /hostfs/etc/bashrc -p wa -k shell_profiles
+        -w /hostfs/root/.bashrc -p wa -k shell_profiles
+        -w /hostfs/root/.bash_profile -p wa -k shell_profiles
+        -w /hostfs/root/.profile -p wa -k shell_profiles
+        -w /hostfs/etc/csh.cshrc -p wa -k shell_profiles
+        -w /hostfs/etc/csh.login -p wa -k shell_profiles
+        -w /hostfs/etc/fish/ -p wa -k shell_profiles
+        -w /hostfs/etc/zsh/ -p wa -k shell_profiles
+        ### <https://github.com/xxh/xxh>
+        -w /hostfs/usr/bin/xxh.bash -p x -k susp_shell_exec
+        -w /hostfs/bin/xxh.bash -p x -k susp_shell_exec
+        -w /hostfs/usr/sbin/xxh.bash -p x -k susp_shell_exec
+        -w /hostfs/usr/local/sbin/xxh.bash -p x -k susp_shell_exec
+        -w /hostfs/usr/local/bin/xxh.bash -p x -k susp_shell_exec
+        -w /hostfs/usr/bin/xxh.xsh -p x -k susp_shell_exec
+        -w /hostfs/bin/xxh.xsh -p x -k susp_shell_exec
+        -w /hostfs/usr/sbin/xxh.xsh -p x -k susp_shell_exec
+        -w /hostfs/usr/local/sbin/xxh.xsh -p x -k susp_shell_exec
+        -w /hostfs/usr/local/bin/xxh.xsh -p x -k susp_shell_exec
+        -w /hostfs/usr/bin/xxh.zsh -p x -k susp_shell_exec
+        -w /hostfs/bin/xxh.zsh -p x -k susp_shell_exec
+        -w /hostfs/usr/sbin/xxh.zsh -p x -k susp_shell_exec
+        -w /hostfs/usr/local/sbin/xxh.zsh -p x -k susp_shell_exec
+        -w /hostfs/usr/local/bin/xxh.zsh -p x -k susp_shell_exec
+        ## Injection
+        ### These rules watch for code injection by the ptrace facility.
+        ### This could indicate someone trying to do something bad or just debugging
+        -a always,exit -F arch=b64 -S ptrace -F a0=0x4 -k code_injection
+        -a always,exit -F arch=b64 -S ptrace -F a0=0x5 -k data_injection
+        -a always,exit -F arch=b64 -S ptrace -F a0=0x6 -k register_injection
+        -a always,exit -F arch=b64 -S ptrace -k tracing
+        ## Anonymous File Creation
+        ### These rules watch the use of memfd_create
+        ### "memfd_create" creates anonymous file and returns a file descriptor to access it
+        ### When combined with "fexecve" can be used to stealthily run binaries in memory without touching disk
+        -a always,exit -F arch=b64 -S memfd_create -F key=anon_file_create
+        ## Privilege Abuse
+        ### The purpose of this rule is to detect when an admin may be abusing power by looking in user's home dir.
+        -a always,exit -F dir=/hostfs/home -F uid=0 -F auid>=1000 -F auid!=-1 -C auid!=obj_uid -k power_abuse
+        # Software Management ---------------------------------------------------------
+        # RPM (Redhat/CentOS)
+        -w /hostfs/usr/bin/rpm -p x -k software_mgmt_exec
+        -w /hostfs/bin/rpm -p x -k software_mgmt_exec
+        -w /hostfs/usr/sbin/rpm -p x -k software_mgmt_exec
+        -w /hostfs/usr/local/sbin/rpm -p x -k software_mgmt_exec
+        -w /hostfs/usr/local/bin/rpm -p x -k software_mgmt_exec
+        -w /hostfs/usr/bin/yum -p x -k software_mgmt_exec
+        -w /hostfs/bin/yum -p x -k software_mgmt_exec
+        -w /hostfs/usr/sbin/yum -p x -k software_mgmt_exec
+        -w /hostfs/usr/local/sbin/yum -p x -k software_mgmt_exec
+        -w /hostfs/usr/local/bin/yum -p x -k software_mgmt_exec
+        -a always,exit -F dir=/hostfs/etc/yum.repos.d -F perm=wa -k software_mgmt
+        # DNF (Fedora/RedHat 8/CentOS 8)
+        -w /hostfs/usr/bin/dnf -p x -k software_mgmt_exec
+        -w /hostfs/bin/dnf -p x -k software_mgmt_exec
+        -w /hostfs/usr/sbin/dnf -p x -k software_mgmt_exec
+        -w /hostfs/usr/local/sbin/dnf -p x -k software_mgmt_exec
+        -w /hostfs/usr/local/bin/dnf -p x -k software_mgmt_exec
+        # YAST/Zypper/RPM (SuSE)
+        -w /hostfs/usr/bin/yast -p x -k software_mgmt_exec
+        -w /hostfs/bin/yast -p x -k software_mgmt_exec
+        -w /hostfs/usr/sbin/yast -p x -k software_mgmt_exec
+        -w /hostfs/usr/local/sbin/yast -p x -k software_mgmt_exec
+        -w /hostfs/usr/local/bin/yast -p x -k software_mgmt_exec
+        -w /hostfs/usr/bin/yast2 -p x -k software_mgmt_exec
+        -w /hostfs/bin/yast2 -p x -k software_mgmt_exec
+        -w /hostfs/usr/sbin/yast2 -p x -k software_mgmt_exec
+        -w /hostfs/usr/local/sbin/yast2 -p x -k software_mgmt_exec
+        -w /hostfs/usr/local/bin/yast2 -p x -k software_mgmt_exec
+        -w /hostfs/usr/bin/zypper -k software_mgmt
+        # DPKG /hostfs/ APT-GET (Debian/Ubuntu)
+        -w /hostfs/usr/bin/dpkg -p x -k software_mgmt_exec
+        -w /hostfs/bin/dpkg -p x -k software_mgmt_exec
+        -w /hostfs/usr/sbin/dpkg -p x -k software_mgmt_exec
+        -w /hostfs/usr/local/sbin/dpkg -p x -k software_mgmt_exec
+        -w /hostfs/usr/local/bin/dpkg -p x -k software_mgmt_exec
+        -w /hostfs/usr/bin/apt -p x -k software_mgmt_exec
+        -w /hostfs/bin/apt -p x -k software_mgmt_exec
+        -w /hostfs/usr/sbin/apt -p x -k software_mgmt_exec
+        -w /hostfs/usr/local/sbin/apt -p x -k software_mgmt_exec
+        -w /hostfs/usr/local/bin/apt -p x -k software_mgmt_exec
+        -a always,exit -F dir=/hostfs/etc/apt -F perm=wa -k software_mgmt
+        -w /hostfs/usr/bin/apt-add-repository -p x -k software_mgmt_exec
+        -w /hostfs/bin/apt-add-repository -p x -k software_mgmt_exec
+        -w /hostfs/usr/sbin/apt-add-repository -p x -k software_mgmt_exec
+        -w /hostfs/usr/local/sbin/apt-add-repository -p x -k software_mgmt_exec
+        -w /hostfs/usr/local/bin/apt-add-repository -p x -k software_mgmt_exec
+        -w /hostfs/usr/bin/apt-get -p x -k software_mgmt_exec
+        -w /hostfs/bin/apt-get -p x -k software_mgmt_exec
+        -w /hostfs/usr/sbin/apt-get -p x -k software_mgmt_exec
+        -w /hostfs/usr/local/sbin/apt-get -p x -k software_mgmt_exec
+        -w /hostfs/usr/local/bin/apt-get -p x -k software_mgmt_exec
+        -w /hostfs/usr/bin/aptitude -p x -k software_mgmt_exec
+        -w /hostfs/bin/aptitude -p x -k software_mgmt_exec
+        -w /hostfs/usr/sbin/aptitude -p x -k software_mgmt_exec
+        -w /hostfs/usr/local/sbin/aptitude -p x -k software_mgmt_exec
+        -w /hostfs/usr/local/bin/aptitude -p x -k software_mgmt_exec
+        -w /hostfs/usr/bin/wajig -p x -k software_mgmt_exec
+        -w /hostfs/bin/wajig -p x -k software_mgmt_exec
+        -w /hostfs/usr/sbin/wajig -p x -k software_mgmt_exec
+        -w /hostfs/usr/local/sbin/wajig -p x -k software_mgmt_exec
+        -w /hostfs/usr/local/bin/wajig -p x -k software_mgmt_exec
+        -w /hostfs/usr/bin/snap -p x -k software_mgmt_exec
+        -w /hostfs/bin/snap -p x -k software_mgmt_exec
+        -w /hostfs/usr/sbin/snap -p x -k software_mgmt_exec
+        -w /hostfs/usr/local/sbin/snap -p x -k software_mgmt_exec
+        -w /hostfs/usr/local/bin/snap -p x -k software_mgmt_exec
+        # PIP(3) (Python installs)
+        -w /hostfs/usr/bin/pip -p x -k third_party_software_mgmt_exec
+        -w /hostfs/bin/pip -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/sbin/pip -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/local/sbin/pip -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/local/bin/pip -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/bin/pip3 -p x -k third_party_software_mgmt_exec
+        -w /hostfs/bin/pip3 -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/sbin/pip3 -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/local/sbin/pip3 -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/local/bin/pip3 -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/bin/pipx -p x -k third_party_software_mgmt_exec
+        -w /hostfs/bin/pipx -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/sbin/pipx -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/local/sbin/pipx -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/local/bin/pipx -p x -k third_party_software_mgmt_exec
+        # npm
+        ## T1072 third party software
+        ## <https://www.npmjs.com>
+        ## <https://docs.npmjs.com/cli/v6/commands/npm-audit>
+        -w /hostfs/usr/bin/npm -p x -k third_party_software_mgmt_exec
+        -w /hostfs/bin/npm -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/sbin/npm -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/local/sbin/npm -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/local/bin/npm -p x -k third_party_software_mgmt_exec
+        # Comprehensive Perl Archive Network (CPAN) (CPAN installs)
+        ## <https://www.cpan.org>
+        -w /hostfs/usr/bin/cpan -p x -k third_party_software_mgmt_exec
+        -w /hostfs/bin/cpan -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/sbin/cpan -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/local/sbin/cpan -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/local/bin/cpan -p x -k third_party_software_mgmt_exec
+        # Ruby (RubyGems installs)
+        ## <https://rubygems.org>
+        -w /hostfs/usr/bin/gem -p x -k third_party_software_mgmt_exec
+        -w /hostfs/bin/gem -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/sbin/gem -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/local/sbin/gem -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/local/bin/gem -p x -k third_party_software_mgmt_exec
+        # LuaRocks (Lua installs)
+        ## <https://luarocks.org>
+        -w /hostfs/usr/bin/luarocks -p x -k third_party_software_mgmt_exec
+        -w /hostfs/bin/luarocks -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/sbin/luarocks -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/local/sbin/luarocks -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/local/bin/luarocks -p x -k third_party_software_mgmt_exec
+        # Pacman (Arch Linux)
+        ## <https://wiki.archlinux.org/title/Pacman>
+        -w /hostfs/usr/bin/pacman.conf -p x -k third_party_software_mgmt_exec
+        -w /hostfs/bin/pacman.conf -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/sbin/pacman.conf -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/local/sbin/pacman.conf -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/local/bin/pacman.conf -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/bin/pacman.d -p x -k third_party_software_mgmt_exec
+        -w /hostfs/bin/pacman.d -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/sbin/pacman.d -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/local/sbin/pacman.d -p x -k third_party_software_mgmt_exec
+        -w /hostfs/usr/local/bin/pacman.d -p x -k third_party_software_mgmt_exec
+           
+        # Special Software ------------------------------------------------------------
+        ## GDS specific secrets
+        -w /hostfs/etc/puppet/ssl -p wa -k puppet_ssl
+        ## IBM Bigfix BESClient
+        -a always,exit -F arch=b64 -S open -F dir=/hostfs/opt/BESClient -F success=0 -k soft_besclient
+        -w /hostfs/var/opt/BESClient/ -p wa -k soft_besclient
+        ## CHEF <https://www.chef.io/chef/>
+        -w /hostfs/etc/chef -p wa -k soft_chef
+        ## Salt
+        ## <https://saltproject.io/>
+        ## <https://docs.saltproject.io/en/latest/ref/configuration/master.html>
+        -w /hostfs/etc/salt -p wa -k soft_salt
+        -w /hostfs/usr/local/etc/salt -p wa -k soft_salt
+        ## Otter
+        ## <https://inedo.com/otter>
+        -w /hostfs/etc/otter -p wa -k soft_otter
+        ## T1081 Credentials In Files
+        -w /hostfs/usr/bin/grep -p x -k string_search_exec
+        -w /hostfs/bin/grep -p x -k string_search_exec
+        -w /hostfs/usr/sbin/grep -p x -k string_search_exec
+        -w /hostfs/usr/local/sbin/grep -p x -k string_search_exec
+        -w /hostfs/usr/local/bin/grep -p x -k string_search_exec
+        -w /hostfs/usr/bin/egrep -p x -k string_search_exec
+        -w /hostfs/bin/egrep -p x -k string_search_exec
+        -w /hostfs/usr/sbin/egrep -p x -k string_search_exec
+        -w /hostfs/usr/local/sbin/egrep -p x -k string_search_exec
+        -w /hostfs/usr/local/bin/egrep -p x -k string_search_exec
+        -w /hostfs/usr/bin/ugrep -p x -k string_search_exec
+        -w /hostfs/bin/ugrep -p x -k string_search_exec
+        -w /hostfs/usr/sbin/ugrep -p x -k string_search_exec
+        -w /hostfs/usr/local/sbin/ugrep -p x -k string_search_exec
+        -w /hostfs/usr/local/bin/ugrep -p x -k string_search_exec
+        ### <https://github.com/tmbinc/bgrep>
+        -w /hostfs/usr/bin/bgrep -p x -k string_search_exec
+        -w /hostfs/bin/bgrep -p x -k string_search_exec
+        -w /hostfs/usr/sbin/bgrep -p x -k string_search_exec
+        -w /hostfs/usr/local/sbin/bgrep -p x -k string_search_exec
+        -w /hostfs/usr/local/bin/bgrep -p x -k string_search_exec
+        ### <https://github.com/BurntSushi/ripgrep>
+        -w /hostfs/usr/bin/rg -p x -k string_search_exec
+        -w /hostfs/bin/rg -p x -k string_search_exec
+        -w /hostfs/usr/sbin/rg -p x -k string_search_exec
+        -w /hostfs/usr/local/sbin/rg -p x -k string_search_exec
+        -w /hostfs/usr/local/bin/rg -p x -k string_search_exec
+        ### <https://github.com/awgn/cgrep>
+        -w /hostfs/usr/bin/cgrep -p x -k string_search_exec
+        -w /hostfs/bin/cgrep -p x -k string_search_exec
+        -w /hostfs/usr/sbin/cgrep -p x -k string_search_exec
+        -w /hostfs/usr/local/sbin/cgrep -p x -k string_search_exec
+        -w /hostfs/usr/local/bin/cgrep -p x -k string_search_exec
+        ### <https://github.com/jpr5/ngrep>
+        -w /hostfs/usr/bin/ngrep -p x -k string_search_exec
+        -w /hostfs/bin/ngrep -p x -k string_search_exec
+        -w /hostfs/usr/sbin/ngrep -p x -k string_search_exec
+        -w /hostfs/usr/local/sbin/ngrep -p x -k string_search_exec
+        -w /hostfs/usr/local/bin/ngrep -p x -k string_search_exec
+        ### <https://github.com/vrothberg/vgrep>
+        -w /hostfs/usr/bin/vgrep -p x -k string_search_exec
+        -w /hostfs/bin/vgrep -p x -k string_search_exec
+        -w /hostfs/usr/sbin/vgrep -p x -k string_search_exec
+        -w /hostfs/usr/local/sbin/vgrep -p x -k string_search_exec
+        -w /hostfs/usr/local/bin/vgrep -p x -k string_search_exec
+        ### <https://github.com/monochromegane/the_platinum_searcher>
+        -w /hostfs/usr/bin/pt -p x -k string_search_exec
+        -w /hostfs/bin/pt -p x -k string_search_exec
+        -w /hostfs/usr/sbin/pt -p x -k string_search_exec
+        -w /hostfs/usr/local/sbin/pt -p x -k string_search_exec
+        -w /hostfs/usr/local/bin/pt -p x -k string_search_exec
+        ### <https://github.com/gvansickle/ucg>
+        -w /hostfs/usr/bin/ucg -p x -k string_search_exec
+        -w /hostfs/bin/ucg -p x -k string_search_exec
+        -w /hostfs/usr/sbin/ucg -p x -k string_search_exec
+        -w /hostfs/usr/local/sbin/ucg -p x -k string_search_exec
+        -w /hostfs/usr/local/bin/ucg -p x -k string_search_exec
+        ### <https://github.com/ggreer/the_silver_searcher>
+        -w /hostfs/usr/bin/ag -p x -k string_search_exec
+        -w /hostfs/bin/ag -p x -k string_search_exec
+        -w /hostfs/usr/sbin/ag -p x -k string_search_exec
+        -w /hostfs/usr/local/sbin/ag -p x -k string_search_exec
+        -w /hostfs/usr/local/bin/ag -p x -k string_search_exec
+        ### <https://github.com/beyondgrep/ack3>
+        ### <https://beyondgrep.com>
+        -w /hostfs/usr/bin/ack -p x -k string_search_exec
+        -w /hostfs/bin/ack -p x -k string_search_exec
+        -w /hostfs/usr/sbin/ack -p x -k string_search_exec
+        -w /hostfs/usr/local/sbin/ack -p x -k string_search_exec
+        -w /hostfs/usr/local/bin/ack -p x -k string_search_exec
+        -w /hostfs/usr/bin/semgrep -p x -k string_search_exec
+        -w /hostfs/bin/semgrep -p x -k string_search_exec
+        -w /hostfs/usr/sbin/semgrep -p x -k string_search_exec
+        -w /hostfs/usr/local/sbin/semgrep -p x -k string_search_exec
+        -w /hostfs/usr/local/bin/semgrep -p x -k string_search_exec
+        ## Docker
+        -w /hostfs/usr/bin/dockerd -k docker
+        -w /hostfs/usr/bin/docker -k docker
+        -w /hostfs/usr/bin/docker-containerd -k docker
+        -w /hostfs/usr/bin/docker-runc -k docker
+        -w /hostfs/var/lib/docker -p wa -k docker
+        -w /hostfs/etc/docker -k docker
+        -w /hostfs/etc/sysconfig/docker -k docker
+        -w /hostfs/etc/sysconfig/docker-storage -k docker
+        -w /hostfs/usr/lib/systemd/system/docker.service -k docker
+        -w /hostfs/usr/lib/systemd/system/docker.socket -k docker
+        ## Virtualization stuff
+        -w /hostfs/usr/bin/qemu-system-x86_64 -p x -k qemu-system-x86_64_exec
+        -w /hostfs/bin/qemu-system-x86_64 -p x -k qemu-system-x86_64_exec
+        -w /hostfs/usr/sbin/qemu-system-x86_64 -p x -k qemu-system-x86_64_exec
+        -w /hostfs/usr/local/sbin/qemu-system-x86_64 -p x -k qemu-system-x86_64_exec
+        -w /hostfs/usr/local/bin/qemu-system-x86_64 -p x -k qemu-system-x86_64_exec
+        -w /hostfs/usr/bin/qemu-img -p x -k qemu-img_exec
+        -w /hostfs/bin/qemu-img -p x -k qemu-img_exec
+        -w /hostfs/usr/sbin/qemu-img -p x -k qemu-img_exec
+        -w /hostfs/usr/local/sbin/qemu-img -p x -k qemu-img_exec
+        -w /hostfs/usr/local/bin/qemu-img -p x -k qemu-img_exec
+        -w /hostfs/usr/bin/qemu-kvm -p x -k qemu-kvm_exec
+        -w /hostfs/bin/qemu-kvm -p x -k qemu-kvm_exec
+        -w /hostfs/usr/sbin/qemu-kvm -p x -k qemu-kvm_exec
+        -w /hostfs/usr/local/sbin/qemu-kvm -p x -k qemu-kvm_exec
+        -w /hostfs/usr/local/bin/qemu-kvm -p x -k qemu-kvm_exec
+        -w /hostfs/usr/bin/qemu -p x -k qemu_exec
+        -w /hostfs/bin/qemu -p x -k qemu_exec
+        -w /hostfs/usr/sbin/qemu -p x -k qemu_exec
+        -w /hostfs/usr/local/sbin/qemu -p x -k qemu_exec
+        -w /hostfs/usr/local/bin/qemu -p x -k qemu_exec
+        -w /hostfs/usr/bin/virtualbox -p x -k virtualbox_exec
+        -w /hostfs/bin/virtualbox -p x -k virtualbox_exec
+        -w /hostfs/usr/sbin/virtualbox -p x -k virtualbox_exec
+        -w /hostfs/usr/local/sbin/virtualbox -p x -k virtualbox_exec
+        -w /hostfs/usr/local/bin/virtualbox -p x -k virtualbox_exec
+        -w /hostfs/usr/bin/virt-manager -p x -k virt-manager_exec
+        -w /hostfs/bin/virt-manager -p x -k virt-manager_exec
+        -w /hostfs/usr/sbin/virt-manager -p x -k virt-manager_exec
+        -w /hostfs/usr/local/sbin/virt-manager -p x -k virt-manager_exec
+        -w /hostfs/usr/local/bin/virt-manager -p x -k virt-manager_exec
+        -w /hostfs/usr/bin/VBoxManage -p x -k VBoxManage_exec
+        -w /hostfs/bin/VBoxManage -p x -k VBoxManage_exec
+        -w /hostfs/usr/sbin/VBoxManage -p x -k VBoxManage_exec
+        -w /hostfs/usr/local/sbin/VBoxManage -p x -k VBoxManage_exec
+        -w /hostfs/usr/local/bin/VBoxManage -p x -k VBoxManage_exec
+        ## Kubelet
+        -w /hostfs/usr/bin/kubelet -k kubelet
+        # ipc system call
+        # /hostfs/usr/include/linux/ipc.h
+        ## msgctl
+        #-a always,exit -S ipc -F a0=14 -k Inter-Process_Communication
+        ## msgget
+        #-a always,exit -S ipc -F a0=13 -k Inter-Process_Communication
+        ## Use these lines on x86_64, ia64 instead
+        -a always,exit -F arch=b64 -S msgctl -k Inter-Process_Communication
+        -a always,exit -F arch=b64 -S msgget -k Inter-Process_Communication
+        ## semctl
+        #-a always,exit -S ipc -F a0=3 -k Inter-Process_Communication
+        ## semget
+        #-a always,exit -S ipc -F a0=2 -k Inter-Process_Communication
+        ## semop
+        #-a always,exit -S ipc -F a0=1 -k Inter-Process_Communication
+        ## semtimedop
+        #-a always,exit -S ipc -F a0=4 -k Inter-Process_Communication
+        -a always,exit -F arch=b64 -S semctl -k Inter-Process_Communication
+        -a always,exit -F arch=b64 -S semget -k Inter-Process_Communication
+        -a always,exit -F arch=b64 -S semop -k Inter-Process_Communication
+        -a always,exit -F arch=b64 -S semtimedop -k Inter-Process_Communication
+        ## shmctl
+        #-a always,exit -S ipc -F a0=24 -k Inter-Process_Communication
+        ## shmget
+        #-a always,exit -S ipc -F a0=23 -k Inter-Process_Communication
+        -a always,exit -F arch=b64 -S shmctl -k Inter-Process_Communication
+        -a always,exit -F arch=b64 -S shmget -k Inter-Process_Communication
+        # High Volume Events ----------------------------------------------------------
+        ## Disable these rules if they create too many events in your environment
+        ## Common Shells
+        -w /hostfs/usr/bin/bash -p x -k susp_shell_exec
+        -w /hostfs/bin/bash -p x -k susp_shell_exec
+        -w /hostfs/usr/sbin/bash -p x -k susp_shell_exec
+        -w /hostfs/usr/local/sbin/bash -p x -k susp_shell_exec
+        -w /hostfs/usr/local/bin/bash -p x -k susp_shell_exec
+        -w /hostfs/usr/bin/dash -p x -k susp_shell_exec
+        -w /hostfs/bin/dash -p x -k susp_shell_exec
+        -w /hostfs/usr/sbin/dash -p x -k susp_shell_exec
+        -w /hostfs/usr/local/sbin/dash -p x -k susp_shell_exec
+        -w /hostfs/usr/local/bin/dash -p x -k susp_shell_exec
+        -w /hostfs/usr/bin/busybox -p x -k susp_shell_exec
+        -w /hostfs/bin/busybox -p x -k susp_shell_exec
+        -w /hostfs/usr/sbin/busybox -p x -k susp_shell_exec
+        -w /hostfs/usr/local/sbin/busybox -p x -k susp_shell_exec
+        -w /hostfs/usr/local/bin/busybox -p x -k susp_shell_exec
+        -w /hostfs/usr/bin/zsh -p x -k susp_shell_exec
+        -w /hostfs/bin/zsh -p x -k susp_shell_exec
+        -w /hostfs/usr/sbin/zsh -p x -k susp_shell_exec
+        -w /hostfs/usr/local/sbin/zsh -p x -k susp_shell_exec
+        -w /hostfs/usr/local/bin/zsh -p x -k susp_shell_exec
+        -w /hostfs/usr/bin/sh -p x -k susp_shell_exec
+        -w /hostfs/bin/sh -p x -k susp_shell_exec
+        -w /hostfs/usr/sbin/sh -p x -k susp_shell_exec
+        -w /hostfs/usr/local/sbin/sh -p x -k susp_shell_exec
+        -w /hostfs/usr/local/bin/sh -p x -k susp_shell_exec
+        -w /hostfs/usr/bin/ksh -p x -k susp_shell_exec
+        -w /hostfs/bin/ksh -p x -k susp_shell_exec
+        -w /hostfs/usr/sbin/ksh -p x -k susp_shell_exec
+        -w /hostfs/usr/local/sbin/ksh -p x -k susp_shell_exec
+        -w /hostfs/usr/local/bin/ksh -p x -k susp_shell_exec
+        ## Root command executions
+        -a always,exit -F arch=b64 -F euid=0 -F auid>=1000 -F auid!=-1 -S execve -k rootcmd
+        ## File Deletion Events by User
+        -a always,exit -F arch=b64 -S rmdir -S unlink -S unlinkat -S rename -S renameat -F auid>=1000 -F auid!=-1 -k delete
+        ## File Access
+        ### Unauthorized Access (unsuccessful)
+        -a always,exit -F arch=b64 -S creat -S open -S openat -S open_by_handle_at -S truncate -S ftruncate -F exit=-EACCES -F auid>=1000 -F auid!=-1 -k file_access
+        -a always,exit -F arch=b64 -S creat -S open -S openat -S open_by_handle_at -S truncate -S ftruncate -F exit=-EPERM -F auid>=1000 -F auid!=-1 -k file_access
+        ### Unsuccessful Creation
+        -a always,exit -F arch=b64 -S mkdir,creat,link,symlink,mknod,mknodat,linkat,symlinkat -F exit=-EACCES -k file_creation
+        -a always,exit -F arch=b64 -S mkdir,link,symlink,mkdirat -F exit=-EPERM -k file_creation
+        ### Unsuccessful Modification
+        -a always,exit -F arch=b64 -S rename -S renameat -S truncate -S chmod -S setxattr -S lsetxattr -S removexattr -S lremovexattr -F exit=-EACCES -k file_modification
+        -a always,exit -F arch=b64 -S rename -S renameat -S truncate -S chmod -S setxattr -S lsetxattr -S removexattr -S lremovexattr -F exit=-EPERM -k file_modification
+        -a always,exit -F dir=/hostfs/etc/ssl/certs -F perm=wa -k etc_ssl_changes
+        -a always,exit -F dir=/hostfs/usr/local/share/ca-certificates -F perm=wa -k etc_ssl_changes
+        # Common services 
+        -a always,exit -F dir=/hostfs/etc/named -F perm=wa -k common_service_config
+        -a always,exit -F dir=/hostfs/etc/tomcat -F perm=wa -k common_service_config
+        -a always,exit -F dir=/hostfs/etc/dirsrv -F perm=wa -k common_service_config
+        -a always,exit -F dir=/hostfs/etc/nginx -F perm=wa -k common_service_config
+        -a always,exit -F dir=/hostfs/etc/apache2 -F perm=wa -k common_service_config
+        -a always,exit -F dir=/hostfs/etc/httpd -F perm=wa -k common_service_config
+        -a always,exit -F dir=/hostfs/etc/ipa -F perm=wa -k common_service_config
+        ### <https://github.com/linux-audit/audit-userspace/blob/c014eec64b3a16c004f4a75e5792a4ac2fcc0df2/rules/21-no32bit.rules>
+        ### If you are on a 64 bit platform, everything *should* be running
+        ### in 64 bit mode. This rule will detect any use of the 32 bit syscalls
+        ### because this might be a sign of someone exploiting a hole in the 32
+        ### bit ABI.
+        # CSIRT specific others binaries exec -----------------------------------------
+        -w /hostfs/usr/bin/tor -p x -k intersting_binaries
+        -w /hostfs/bin/tor -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/tor -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/tor -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/tor -p x -k intersting_binaries
+        -w /hostfs/usr/bin/rm -p x -k intersting_binaries
+        -w /hostfs/bin/rm -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/rm -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/rm -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/rm -p x -k intersting_binaries
+        -w /hostfs/usr/bin/keyctl -p x -k intersting_binaries
+        -w /hostfs/bin/keyctl -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/keyctl -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/keyctl -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/keyctl -p x -k intersting_binaries
+        -w /hostfs/usr/bin/kinit -p x -k intersting_binaries
+        -w /hostfs/bin/kinit -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/kinit -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/kinit -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/kinit -p x -k intersting_binaries
+        -w /hostfs/usr/bin/ipa-backup -p x -k intersting_binaries
+        -w /hostfs/bin/ipa-backup -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/ipa-backup -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/ipa-backup -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/ipa-backup -p x -k intersting_binaries
+        -w /hostfs/usr/bin/systemd-run -p x -k intersting_binaries
+        -w /hostfs/bin/systemd-run -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/systemd-run -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/systemd-run -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/systemd-run -p x -k intersting_binaries
+        -w /hostfs/usr/bin/sshd -p x -k intersting_binaries
+        -w /hostfs/bin/sshd -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/sshd -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/sshd -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/sshd -p x -k intersting_binaries
+        -w /hostfs/usr/bin/systemd -p x -k intersting_binaries
+        -w /hostfs/bin/systemd -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/systemd -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/systemd -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/systemd -p x -k intersting_binaries
+        -w /hostfs/usr/bin/shellinaboxd -p x -k intersting_binaries
+        -w /hostfs/bin/shellinaboxd -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/shellinaboxd -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/shellinaboxd -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/shellinaboxd -p x -k intersting_binaries
+        -w /hostfs/usr/bin/gcc -p x -k intersting_binaries
+        -w /hostfs/bin/gcc -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/gcc -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/gcc -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/gcc -p x -k intersting_binaries
+        -w /hostfs/usr/bin/g++ -p x -k intersting_binaries
+        -w /hostfs/bin/g++ -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/g++ -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/g++ -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/g++ -p x -k intersting_binaries
+        -w /hostfs/usr/bin/clang -p x -k intersting_binaries
+        -w /hostfs/bin/clang -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/clang -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/clang -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/clang -p x -k intersting_binaries
+        -w /hostfs/usr/bin/clang++ -p x -k intersting_binaries
+        -w /hostfs/bin/clang++ -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/clang++ -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/clang++ -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/clang++ -p x -k intersting_binaries
+        -w /hostfs/usr/bin/go -p x -k intersting_binaries
+        -w /hostfs/bin/go -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/go -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/go -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/go -p x -k intersting_binaries
+        -w /hostfs/usr/bin/rustc -p x -k intersting_binaries
+        -w /hostfs/bin/rustc -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/rustc -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/rustc -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/rustc -p x -k intersting_binaries
+        -w /hostfs/usr/bin/cargo -p x -k intersting_binaries
+        -w /hostfs/bin/cargo -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/cargo -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/cargo -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/cargo -p x -k intersting_binaries
+        -w /hostfs/usr/bin/python3 -p x -k intersting_binaries
+        -w /hostfs/bin/python3 -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/python3 -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/python3 -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/python3 -p x -k intersting_binaries
+        -w /hostfs/usr/bin/mount -p x -k intersting_binaries
+        -w /hostfs/bin/mount -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/mount -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/mount -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/mount -p x -k intersting_binaries
+        -w /hostfs/usr/bin/msfconsole -p x -k intersting_binaries
+        -w /hostfs/bin/msfconsole -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/msfconsole -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/msfconsole -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/msfconsole -p x -k intersting_binaries
+        -w /hostfs/usr/bin/mirai -p x -k intersting_binaries
+        -w /hostfs/bin/mirai -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/mirai -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/mirai -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/mirai -p x -k intersting_binaries
+        -w /hostfs/usr/bin/gafgyt -p x -k intersting_binaries
+        -w /hostfs/bin/gafgyt -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/gafgyt -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/gafgyt -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/gafgyt -p x -k intersting_binaries
+        -w /hostfs/usr/bin/hydra -p x -k intersting_binaries
+        -w /hostfs/bin/hydra -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/hydra -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/hydra -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/hydra -p x -k intersting_binaries
+        -w /hostfs/usr/bin/medusa -p x -k intersting_binaries
+        -w /hostfs/bin/medusa -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/medusa -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/medusa -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/medusa -p x -k intersting_binaries
+        -w /hostfs/usr/bin/beacon -p x -k intersting_binaries
+        -w /hostfs/bin/beacon -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/beacon -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/beacon -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/beacon -p x -k intersting_binaries
+        -w /hostfs/usr/bin/empire -p x -k intersting_binaries
+        -w /hostfs/bin/empire -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/empire -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/empire -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/empire -p x -k intersting_binaries
+        -w /hostfs/usr/bin/silver-server -p x -k intersting_binaries
+        -w /hostfs/bin/silver-server -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/silver-server -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/silver-server -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/silver-server -p x -k intersting_binaries
+        -w /hostfs/usr/bin/silver-client -p x -k intersting_binaries
+        -w /hostfs/bin/silver-client -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/silver-client -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/silver-client -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/silver-client -p x -k intersting_binaries
+        -w /hostfs/usr/bin/responder -p x -k intersting_binaries
+        -w /hostfs/bin/responder -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/responder -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/responder -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/responder -p x -k intersting_binaries
+        -w /hostfs/usr/bin/john -p x -k intersting_binaries
+        -w /hostfs/bin/john -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/john -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/john -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/john -p x -k intersting_binaries
+        -w /hostfs/usr/bin/pspy -p x -k intersting_binaries
+        -w /hostfs/bin/pspy -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/pspy -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/pspy -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/pspy -p x -k intersting_binaries
+        -w /hostfs/usr/bin/chrootkit -p x -k intersting_binaries
+        -w /hostfs/bin/chrootkit -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/chrootkit -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/chrootkit -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/chrootkit -p x -k intersting_binaries
+        -w /hostfs/usr/bin/dnsExfiltrator -p x -k intersting_binaries
+        -w /hostfs/bin/dnsExfiltrator -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/dnsExfiltrator -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/dnsExfiltrator -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/dnsExfiltrator -p x -k intersting_binaries
+        -w /hostfs/usr/bin/lazagne -p x -k intersting_binaries
+        -w /hostfs/bin/lazagne -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/lazagne -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/lazagne -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/lazagne -p x -k intersting_binaries
+        -w /hostfs/usr/bin/steghide -p x -k intersting_binaries
+        -w /hostfs/bin/steghide -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/steghide -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/steghide -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/steghide -p x -k intersting_binaries
+        -w /hostfs/usr/bin/cme -p x -k intersting_binaries
+        -w /hostfs/bin/cme -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/cme -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/cme -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/cme -p x -k intersting_binaries
+        -w /hostfs/usr/bin/chisel -p x -k intersting_binaries
+        -w /hostfs/bin/chisel -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/chisel -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/chisel -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/chisel -p x -k intersting_binaries
+        -w /hostfs/usr/bin/sharphound -p x -k intersting_binaries
+        -w /hostfs/bin/sharphound -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/sharphound -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/sharphound -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/sharphound -p x -k intersting_binaries
+        -w /hostfs/usr/bin/bloodhound -p x -k intersting_binaries
+        -w /hostfs/bin/bloodhound -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/bloodhound -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/bloodhound -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/bloodhound -p x -k intersting_binaries
+        -w /hostfs/usr/bin/reptile -p x -k intersting_binaries
+        -w /hostfs/bin/reptile -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/reptile -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/reptile -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/reptile -p x -k intersting_binaries
+        -w /hostfs/usr/bin/rustscan -p x -k intersting_binaries
+        -w /hostfs/bin/rustscan -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/rustscan -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/rustscan -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/rustscan -p x -k intersting_binaries
+        -w /hostfs/usr/bin/diamorphine -p x -k intersting_binaries
+        -w /hostfs/bin/diamorphine -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/diamorphine -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/diamorphine -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/diamorphine -p x -k intersting_binaries
+        -w /hostfs/usr/bin/bettercap -p x -k intersting_binaries
+        -w /hostfs/bin/bettercap -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/bettercap -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/bettercap -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/bettercap -p x -k intersting_binaries
+        -w /hostfs/usr/bin/linpeas -p x -k intersting_binaries
+        -w /hostfs/bin/linpeas -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/linpeas -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/linpeas -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/linpeas -p x -k intersting_binaries
+        -w /hostfs/usr/bin/dirtycow -p x -k intersting_binaries
+        -w /hostfs/bin/dirtycow -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/dirtycow -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/dirtycow -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/dirtycow -p x -k intersting_binaries
+        -w /hostfs/usr/bin/impacket -p x -k intersting_binaries
+        -w /hostfs/bin/impacket -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/impacket -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/impacket -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/impacket -p x -k intersting_binaries
+        -w /hostfs/usr/bin/secretsdump -p x -k intersting_binaries
+        -w /hostfs/bin/secretsdump -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/secretsdump -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/secretsdump -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/secretsdump -p x -k intersting_binaries
+        -w /hostfs/usr/bin/mitmproxy -p x -k intersting_binaries
+        -w /hostfs/bin/mitmproxy -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/mitmproxy -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/mitmproxy -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/mitmproxy -p x -k intersting_binaries
+        -w /hostfs/usr/bin/hashcat -p x -k intersting_binaries
+        -w /hostfs/bin/hashcat -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/hashcat -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/hashcat -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/hashcat -p x -k intersting_binaries
+        -w /hostfs/usr/bin/chgrp -p x -k intersting_binaries
+        -w /hostfs/bin/chgrp -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/chgrp -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/chgrp -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/chgrp -p x -k intersting_binaries
+        -w /hostfs/usr/bin/chage -p x -k intersting_binaries
+        -w /hostfs/bin/chage -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/chage -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/chage -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/chage -p x -k intersting_binaries
+        -w /hostfs/usr/bin/python -p x -k intersting_binaries
+        -w /hostfs/bin/python -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/python -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/python -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/python -p x -k intersting_binaries
+        -w /hostfs/usr/bin/perl -p x -k intersting_binaries
+        -w /hostfs/bin/perl -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/perl -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/perl -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/perl -p x -k intersting_binaries
+        -w /hostfs/usr/bin/ruby -p x -k intersting_binaries
+        -w /hostfs/bin/ruby -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/ruby -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/ruby -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/ruby -p x -k intersting_binaries
+        -w /hostfs/usr/bin/php -p x -k intersting_binaries
+        -w /hostfs/bin/php -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/php -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/php -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/php -p x -k intersting_binaries
+        -w /hostfs/usr/bin/xxd -p x -k intersting_binaries
+        -w /hostfs/bin/xxd -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/xxd -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/xxd -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/xxd -p x -k intersting_binaries
+        -w /hostfs/usr/bin/upx -p x -k intersting_binaries
+        -w /hostfs/bin/upx -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/upx -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/upx -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/upx -p x -k intersting_binaries
+        -w /hostfs/usr/bin/mpress -p x -k intersting_binaries
+        -w /hostfs/bin/mpress -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/mpress -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/mpress -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/mpress -p x -k intersting_binaries
+        -w /hostfs/usr/bin/elfcrypt -p x -k intersting_binaries
+        -w /hostfs/bin/elfcrypt -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/elfcrypt -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/elfcrypt -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/elfcrypt -p x -k intersting_binaries
+        -w /hostfs/usr/bin/shellter -p x -k intersting_binaries
+        -w /hostfs/bin/shellter -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/shellter -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/shellter -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/shellter -p x -k intersting_binaries
+        -w /hostfs/usr/bin/pyinstaller -p x -k intersting_binaries
+        -w /hostfs/bin/pyinstaller -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/pyinstaller -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/pyinstaller -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/pyinstaller -p x -k intersting_binaries
+        -w /hostfs/usr/bin/tigress -p x -k intersting_binaries
+        -w /hostfs/bin/tigress -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/tigress -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/tigress -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/tigress -p x -k intersting_binaries
+        -w /hostfs/usr/bin/lief -p x -k intersting_binaries
+        -w /hostfs/bin/lief -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/lief -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/lief -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/lief -p x -k intersting_binaries
+        -w /hostfs/usr/bin/dig -p x -k intersting_binaries
+        -w /hostfs/bin/dig -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/dig -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/dig -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/dig -p x -k intersting_binaries
+        -w /hostfs/usr/bin/nslookup -p x -k intersting_binaries
+        -w /hostfs/bin/nslookup -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/nslookup -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/nslookup -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/nslookup -p x -k intersting_binaries
+        -w /hostfs/usr/bin/telnet -p x -k intersting_binaries
+        -w /hostfs/bin/telnet -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/telnet -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/telnet -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/telnet -p x -k intersting_binaries
+        -w /hostfs/usr/bin/gpasswd -p x -k intersting_binaries
+        -w /hostfs/bin/gpasswd -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/gpasswd -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/gpasswd -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/gpasswd -p x -k intersting_binaries
+        -w /hostfs/usr/bin/ldapsearch -p x -k intersting_binaries
+        -w /hostfs/bin/ldapsearch -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/ldapsearch -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/ldapsearch -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/ldapsearch -p x -k intersting_binaries
+        -w /hostfs/usr/bin/ldapadd -p x -k intersting_binaries
+        -w /hostfs/bin/ldapadd -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/ldapadd -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/ldapadd -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/ldapadd -p x -k intersting_binaries
+        -w /hostfs/usr/bin/ldapmodify -p x -k intersting_binaries
+        -w /hostfs/bin/ldapmodify -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/ldapmodify -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/ldapmodify -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/ldapmodify -p x -k intersting_binaries
+        -w /hostfs/usr/bin/ldapdelete -p x -k intersting_binaries
+        -w /hostfs/bin/ldapdelete -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/ldapdelete -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/ldapdelete -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/ldapdelete -p x -k intersting_binaries
+        -w /hostfs/usr/bin/ldapcompare -p x -k intersting_binaries
+        -w /hostfs/bin/ldapcompare -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/ldapcompare -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/ldapcompare -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/ldapcompare -p x -k intersting_binaries
+        -w /hostfs/usr/bin/ldapwhoami -p x -k intersting_binaries
+        -w /hostfs/bin/ldapwhoami -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/ldapwhoami -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/ldapwhoami -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/ldapwhoami -p x -k intersting_binaries
+        -w /hostfs/usr/bin/ldapexop -p x -k intersting_binaries
+        -w /hostfs/bin/ldapexop -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/ldapexop -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/ldapexop -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/ldapexop -p x -k intersting_binaries
+        -w /hostfs/usr/bin/ldappasswd -p x -k intersting_binaries
+        -w /hostfs/bin/ldappasswd -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/ldappasswd -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/ldappasswd -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/ldappasswd -p x -k intersting_binaries
+        -w /hostfs/usr/bin/slapcat -p x -k intersting_binaries
+        -w /hostfs/bin/slapcat -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/slapcat -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/slapcat -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/slapcat -p x -k intersting_binaries
+        -w /hostfs/usr/bin/slapadd -p x -k intersting_binaries
+        -w /hostfs/bin/slapadd -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/slapadd -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/slapadd -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/slapadd -p x -k intersting_binaries
+        -w /hostfs/usr/bin/mkdir -p x -k intersting_binaries
+        -w /hostfs/bin/mkdir -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/mkdir -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/mkdir -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/mkdir -p x -k intersting_binaries
+        -w /hostfs/usr/bin/touch -p x -k intersting_binaries
+        -w /hostfs/bin/touch -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/touch -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/touch -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/touch -p x -k intersting_binaries
+        -w /hostfs/usr/bin/vim -p x -k intersting_binaries
+        -w /hostfs/bin/vim -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/vim -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/vim -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/vim -p x -k intersting_binaries
+        -w /hostfs/usr/bin/nano -p x -k intersting_binaries
+        -w /hostfs/bin/nano -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/nano -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/nano -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/nano -p x -k intersting_binaries
+        -w /hostfs/usr/bin/find -p x -k intersting_binaries
+        -w /hostfs/bin/find -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/find -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/find -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/find -p x -k intersting_binaries
+        -w /hostfs/usr/bin/locate -p x -k intersting_binaries
+        -w /hostfs/bin/locate -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/locate -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/locate -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/locate -p x -k intersting_binaries
+        -w /hostfs/usr/bin/mv -p x -k intersting_binaries
+        -w /hostfs/bin/mv -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/mv -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/mv -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/mv -p x -k intersting_binaries
+        -w /hostfs/usr/bin/rsync -p x -k intersting_binaries
+        -w /hostfs/bin/rsync -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/rsync -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/rsync -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/rsync -p x -k intersting_binaries
+        -w /hostfs/usr/bin/xclip -p x -k intersting_binaries
+        -w /hostfs/bin/xclip -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/xclip -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/xclip -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/xclip -p x -k intersting_binaries
+        -w /hostfs/usr/bin/xclipboard -p x -k intersting_binaries
+        -w /hostfs/bin/xclipboard -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/xclipboard -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/xclipboard -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/xclipboard -p x -k intersting_binaries
+        -w /hostfs/bin/docker -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/docker -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/docker -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/docker -p x -k intersting_binaries
+        -w /hostfs/usr/bin/insmod -p x -k intersting_binaries
+        -w /hostfs/bin/insmod -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/insmod -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/insmod -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/insmod -p x -k intersting_binaries
+        -w /hostfs/usr/bin/rmmod -p x -k intersting_binaries
+        -w /hostfs/bin/rmmod -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/rmmod -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/rmmod -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/rmmod -p x -k intersting_binaries
+        -w /hostfs/usr/bin/modprobe -p x -k intersting_binaries
+        -w /hostfs/bin/modprobe -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/modprobe -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/modprobe -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/modprobe -p x -k intersting_binaries
+        -w /hostfs/usr/bin/mkinitramfs -p x -k intersting_binaries
+        -w /hostfs/bin/mkinitramfs -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/mkinitramfs -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/mkinitramfs -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/mkinitramfs -p x -k intersting_binaries
+        -w /hostfs/usr/bin/cryptroot -p x -k intersting_binaries
+        -w /hostfs/bin/cryptroot -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/cryptroot -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/cryptroot -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/cryptroot -p x -k intersting_binaries
+        -w /hostfs/usr/bin/framebuffer -p x -k intersting_binaries
+        -w /hostfs/bin/framebuffer -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/framebuffer -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/framebuffer -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/framebuffer -p x -k intersting_binaries
+        -w /hostfs/usr/bin/kcryptd -p x -k intersting_binaries
+        -w /hostfs/bin/kcryptd -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/kcryptd -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/kcryptd -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/kcryptd -p x -k intersting_binaries
+        -w /hostfs/usr/bin/setcap -p x -k intersting_binaries
+        -w /hostfs/bin/setcap -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/setcap -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/setcap -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/setcap -p x -k intersting_binaries
+        -w /hostfs/usr/bin/sudoedit -p x -k intersting_binaries
+        -w /hostfs/bin/sudoedit -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/sudoedit -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/sudoedit -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/sudoedit -p x -k intersting_binaries
+        -w /hostfs/usr/bin/dd -p x -k intersting_binaries
+        -w /hostfs/bin/dd -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/dd -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/dd -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/dd -p x -k intersting_binaries
+        -w /hostfs/usr/bin/shred -p x -k intersting_binaries
+        -w /hostfs/bin/shred -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/shred -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/shred -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/shred -p x -k intersting_binaries
+        -w /hostfs/usr/bin/truncate -p x -k intersting_binaries
+        -w /hostfs/bin/truncate -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/truncate -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/truncate -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/truncate -p x -k intersting_binaries
+        -w /hostfs/usr/bin/gedit -p x -k intersting_binaries
+        -w /hostfs/bin/gedit -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/gedit -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/gedit -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/gedit -p x -k intersting_binaries
+        -w /hostfs/usr/bin/gnome-text-editor -p x -k intersting_binaries
+        -w /hostfs/bin/gnome-text-editor -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/gnome-text-editor -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/gnome-text-editor -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/gnome-text-editor -p x -k intersting_binaries
+        -w /hostfs/usr/bin/xedit -p x -k intersting_binaries
+        -w /hostfs/bin/xedit -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/xedit -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/xedit -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/xedit -p x -k intersting_binaries
+        -w /hostfs/usr/bin/sed -p x -k intersting_binaries
+        -w /hostfs/bin/sed -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/sed -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/sed -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/sed -p x -k intersting_binaries
+        -w /hostfs/usr/bin/ln -p x -k intersting_binaries
+        -w /hostfs/bin/ln -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/ln -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/ln -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/ln -p x -k intersting_binaries
+        -w /hostfs/usr/bin/bpftrace -p x -k intersting_binaries
+        -w /hostfs/bin/bpftrace -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/bpftrace -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/bpftrace -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/bpftrace -p x -k intersting_binaries
+        -w /hostfs/usr/bin/lltng -p x -k intersting_binaries
+        -w /hostfs/bin/lltng -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/lltng -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/lltng -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/lltng -p x -k intersting_binaries
+        -w /hostfs/usr/bin/babeltrace -p x -k intersting_binaries
+        -w /hostfs/bin/babeltrace -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/babeltrace -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/babeltrace -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/babeltrace -p x -k intersting_binaries
+        -w /hostfs/usr/bin/execsnoop -p x -k intersting_binaries
+        -w /hostfs/bin/execsnoop -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/execsnoop -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/execsnoop -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/execsnoop -p x -k intersting_binaries
+        -w /hostfs/usr/bin/flamegraph -p x -k intersting_binaries
+        -w /hostfs/bin/flamegraph -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/flamegraph -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/flamegraph -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/flamegraph -p x -k intersting_binaries
+        -w /hostfs/usr/bin/ftrace -p x -k intersting_binaries
+        -w /hostfs/bin/ftrace -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/ftrace -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/ftrace -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/ftrace -p x -k intersting_binaries
+        -w /hostfs/usr/bin/perf -p x -k intersting_binaries
+        -w /hostfs/bin/perf -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/perf -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/perf -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/perf -p x -k intersting_binaries
+        -w /hostfs/usr/bin/stap -p x -k intersting_binaries
+        -w /hostfs/bin/stap -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/stap -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/stap -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/stap -p x -k intersting_binaries
+        -w /hostfs/usr/bin/systemtap -p x -k intersting_binaries
+        -w /hostfs/bin/systemtap -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/systemtap -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/systemtap -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/systemtap -p x -k intersting_binaries
+        -w /hostfs/usr/bin/ktap -p x -k intersting_binaries
+        -w /hostfs/bin/ktap -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/ktap -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/ktap -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/ktap -p x -k intersting_binaries
+        -w /hostfs/usr/bin/dtrace -p x -k intersting_binaries
+        -w /hostfs/bin/dtrace -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/dtrace -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/dtrace -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/dtrace -p x -k intersting_binaries
+        -w /hostfs/usr/bin/sysdig -p x -k intersting_binaries
+        -w /hostfs/bin/sysdig -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/sysdig -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/sysdig -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/sysdig -p x -k intersting_binaries
+        -w /hostfs/usr/bin/fwupd -p x -k intersting_binaries
+        -w /hostfs/bin/fwupd -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/fwupd -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/fwupd -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/fwupd -p x -k intersting_binaries
+        -w /hostfs/usr/bin/firewall-cmd -p x -k intersting_binaries
+        -w /hostfs/bin/firewall-cmd -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/firewall-cmd -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/firewall-cmd -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/firewall-cmd -p x -k intersting_binaries
+        -w /hostfs/usr/bin/autorecon -p x -k intersting_binaries
+        -w /hostfs/bin/autorecon -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/autorecon -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/autorecon -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/autorecon -p x -k intersting_binaries
+        -w /hostfs/usr/bin/hping -p x -k intersting_binaries
+        -w /hostfs/bin/hping -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/hping -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/hping -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/hping -p x -k intersting_binaries
+        -w /hostfs/usr/bin/nping -p x -k intersting_binaries
+        -w /hostfs/bin/nping -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/nping -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/nping -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/nping -p x -k intersting_binaries
+        -w /hostfs/usr/bin/naabu -p x -k intersting_binaries
+        -w /hostfs/bin/naabu -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/naabu -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/naabu -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/naabu -p x -k intersting_binaries
+        -w /hostfs/usr/bin/zenmap -p x -k intersting_binaries
+        -w /hostfs/bin/zenmap -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/zenmap -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/zenmap -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/zenmap -p x -k intersting_binaries
+        -w /hostfs/usr/bin/arp-scan -p x -k intersting_binaries
+        -w /hostfs/bin/arp-scan -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/arp-scan -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/arp-scan -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/arp-scan -p x -k intersting_binaries
+        -w /hostfs/usr/bin/netdiscover -p x -k intersting_binaries
+        -w /hostfs/bin/netdiscover -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/netdiscover -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/netdiscover -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/netdiscover -p x -k intersting_binaries
+        -w /hostfs/usr/bin/astsu -p x -k intersting_binaries
+        -w /hostfs/bin/astsu -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/astsu -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/astsu -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/astsu -p x -k intersting_binaries
+        -w /hostfs/usr/bin/fierce -p x -k intersting_binaries
+        -w /hostfs/bin/fierce -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/fierce -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/fierce -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/fierce -p x -k intersting_binaries
+        -w /hostfs/usr/bin/unicornscan -p x -k intersting_binaries
+        -w /hostfs/bin/unicornscan -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/unicornscan -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/unicornscan -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/unicornscan -p x -k intersting_binaries
+        -w /hostfs/usr/bin/tftp -p x -k intersting_binaries
+        -w /hostfs/bin/tftp -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/tftp -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/tftp -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/tftp -p x -k intersting_binaries
+        -w /hostfs/usr/bin/smbclient -p x -k intersting_binaries
+        -w /hostfs/bin/smbclient -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/smbclient -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/smbclient -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/smbclient -p x -k intersting_binaries
+        -w /hostfs/usr/bin/ftps -p x -k intersting_binaries
+        -w /hostfs/bin/ftps -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/ftps -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/ftps -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/ftps -p x -k intersting_binaries
+        -w /hostfs/usr/bin/whois -p x -k intersting_binaries
+        -w /hostfs/bin/whois -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/whois -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/whois -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/whois -p x -k intersting_binaries
+        -w /hostfs/usr/bin/node -p x -k intersting_binaries
+        -w /hostfs/bin/node -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/node -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/node -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/node -p x -k intersting_binaries
+        -w /hostfs/usr/bin/chattr -p x -k intersting_binaries
+        -w /hostfs/bin/chattr -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/chattr -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/chattr -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/chattr -p x -k intersting_binaries
+        -w /hostfs/usr/bin/git -p x -k intersting_binaries
+        -w /hostfs/bin/git -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/git -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/git -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/git -p x -k intersting_binaries
+        -w /hostfs/usr/bin/cat -p x -k intersting_binaries
+        -w /hostfs/bin/cat -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/cat -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/cat -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/cat -p x -k intersting_binaries
+        -w /hostfs/usr/bin/exiftool -p x -k intersting_binaries
+        -w /hostfs/bin/exiftool -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/exiftool -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/exiftool -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/exiftool -p x -k intersting_binaries
+        -w /hostfs/usr/bin/exiv2 -p x -k intersting_binaries
+        -w /hostfs/bin/exiv2 -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/exiv2 -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/exiv2 -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/exiv2 -p x -k intersting_binaries
+        -w /hostfs/usr/bin/magick -p x -k intersting_binaries
+        -w /hostfs/bin/magick -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/magick -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/magick -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/magick -p x -k intersting_binaries
+        -w /hostfs/usr/bin/zsteg -p x -k intersting_binaries
+        -w /hostfs/bin/zsteg -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/zsteg -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/zsteg -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/zsteg -p x -k intersting_binaries
+        -w /hostfs/usr/bin/stegoveritas -p x -k intersting_binaries
+        -w /hostfs/bin/stegoveritas -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/stegoveritas -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/stegoveritas -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/stegoveritas -p x -k intersting_binaries
+        -w /hostfs/usr/bin/stegsolve -p x -k intersting_binaries
+        -w /hostfs/bin/stegsolve -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/stegsolve -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/stegsolve -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/stegsolve -p x -k intersting_binaries
+        -w /hostfs/usr/bin/stegpy -p x -k intersting_binaries
+        -w /hostfs/bin/stegpy -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/stegpy -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/stegpy -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/stegpy -p x -k intersting_binaries
+        -w /hostfs/usr/bin/pngcheck -p x -k intersting_binaries
+        -w /hostfs/bin/pngcheck -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/pngcheck -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/pngcheck -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/pngcheck -p x -k intersting_binaries
+        -w /hostfs/usr/bin/ffmpeg -p x -k intersting_binaries
+        -w /hostfs/bin/ffmpeg -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/ffmpeg -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/ffmpeg -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/ffmpeg -p x -k intersting_binaries
+        -w /hostfs/usr/bin/hideme -p x -k intersting_binaries
+        -w /hostfs/bin/hideme -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/hideme -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/hideme -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/hideme -p x -k intersting_binaries
+        -w /hostfs/usr/bin/spectrology -p x -k intersting_binaries
+        -w /hostfs/bin/spectrology -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/spectrology -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/spectrology -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/spectrology -p x -k intersting_binaries
+        -w /hostfs/usr/bin/LSBSteg -p x -k intersting_binaries
+        -w /hostfs/bin/LSBSteg -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/LSBSteg -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/LSBSteg -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/LSBSteg -p x -k intersting_binaries
+        -w /hostfs/usr/bin/sng -p x -k intersting_binaries
+        -w /hostfs/bin/sng -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/sng -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/sng -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/sng -p x -k intersting_binaries
+        -w /hostfs/usr/bin/stegdetect -p x -k intersting_binaries
+        -w /hostfs/bin/stegdetect -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/stegdetect -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/stegdetect -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/stegdetect -p x -k intersting_binaries
+        -w /hostfs/usr/bin/stegbreak -p x -k intersting_binaries
+        -w /hostfs/bin/stegbreak -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/stegbreak -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/stegbreak -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/stegbreak -p x -k intersting_binaries
+        -w /hostfs/usr/bin/phide -p x -k intersting_binaries
+        -w /hostfs/bin/phide -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/phide -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/phide -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/phide -p x -k intersting_binaries
+        -w /hostfs/usr/bin/jpseek -p x -k intersting_binaries
+        -w /hostfs/bin/jpseek -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/jpseek -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/jpseek -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/jpseek -p x -k intersting_binaries
+        -w /hostfs/usr/bin/jsteg -p x -k intersting_binaries
+        -w /hostfs/bin/jsteg -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/jsteg -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/jsteg -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/jsteg -p x -k intersting_binaries
+        -w /hostfs/usr/bin/openstego -p x -k intersting_binaries
+        -w /hostfs/bin/openstego -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/openstego -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/openstego -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/openstego -p x -k intersting_binaries
+        -w /hostfs/usr/bin/stegano -p x -k intersting_binaries
+        -w /hostfs/bin/stegano -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/stegano -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/stegano -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/stegano -p x -k intersting_binaries
+        -w /hostfs/usr/bin/outguess -p x -k intersting_binaries
+        -w /hostfs/bin/outguess -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/outguess -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/outguess -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/outguess -p x -k intersting_binaries
+        -w /hostfs/usr/bin/cloackedpixel -p x -k intersting_binaries
+        -w /hostfs/bin/cloackedpixel -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/cloackedpixel -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/cloackedpixel -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/cloackedpixel -p x -k intersting_binaries
+        -w /hostfs/usr/bin/pdf-parser -p x -k intersting_binaries
+        -w /hostfs/bin/pdf-parser -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/pdf-parser -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/pdf-parser -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/pdf-parser -p x -k intersting_binaries
+        -w /hostfs/usr/bin/peepdf -p x -k intersting_binaries
+        -w /hostfs/bin/peepdf -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/peepdf -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/peepdf -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/peepdf -p x -k intersting_binaries
+        -w /hostfs/usr/bin/stegsnow -p x -k intersting_binaries
+        -w /hostfs/bin/stegsnow -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/stegsnow -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/stegsnow -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/stegsnow -p x -k intersting_binaries
+        -w /hostfs/usr/bin/binwalk -p x -k intersting_binaries
+        -w /hostfs/bin/binwalk -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/binwalk -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/binwalk -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/binwalk -p x -k intersting_binaries
+        -w /hostfs/usr/bin/foremost -p x -k intersting_binaries
+        -w /hostfs/bin/foremost -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/foremost -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/foremost -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/foremost -p x -k intersting_binaries
+        -w /hostfs/usr/bin/hexdump -p x -k intersting_binaries
+        -w /hostfs/bin/hexdump -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/hexdump -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/hexdump -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/hexdump -p x -k intersting_binaries
+        -w /hostfs/usr/bin/ddrescue -p x -k intersting_binaries
+        -w /hostfs/bin/ddrescue -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/ddrescue -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/ddrescue -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/ddrescue -p x -k intersting_binaries
+        -w /hostfs/usr/bin/scalpel -p x -k intersting_binaries
+        -w /hostfs/bin/scalpel -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/scalpel -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/scalpel -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/scalpel -p x -k intersting_binaries
+        -w /hostfs/usr/bin/fatback -p x -k intersting_binaries
+        -w /hostfs/bin/fatback -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/fatback -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/fatback -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/fatback -p x -k intersting_binaries
+        -w /hostfs/usr/bin/sleuth -p x -k intersting_binaries
+        -w /hostfs/bin/sleuth -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/sleuth -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/sleuth -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/sleuth -p x -k intersting_binaries
+        -w /hostfs/usr/bin/kpartx -p x -k intersting_binaries
+        -w /hostfs/bin/kpartx -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/kpartx -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/kpartx -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/kpartx -p x -k intersting_binaries
+        -w /hostfs/usr/bin/chainbreaker -p x -k intersting_binaries
+        -w /hostfs/bin/chainbreaker -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/chainbreaker -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/chainbreaker -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/chainbreaker -p x -k intersting_binaries
+        -w /hostfs/usr/bin/photorec -p x -k intersting_binaries
+        -w /hostfs/bin/photorec -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/photorec -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/photorec -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/photorec -p x -k intersting_binaries
+        -w /hostfs/usr/bin/ghex -p x -k intersting_binaries
+        -w /hostfs/bin/ghex -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/ghex -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/ghex -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/ghex -p x -k intersting_binaries
+        -w /hostfs/usr/bin/rkhunter -p x -k intersting_binaries
+        -w /hostfs/bin/rkhunter -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/rkhunter -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/rkhunter -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/rkhunter -p x -k intersting_binaries
+        -w /hostfs/usr/bin/gitlab-workhors -p x -k intersting_binaries
+        -w /hostfs/bin/gitlab-workhors -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/gitlab-workhors -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/gitlab-workhors -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/gitlab-workhors -p x -k intersting_binaries
+        -w /hostfs/usr/bin/kubectl -p x -k intersting_binaries
+        -w /hostfs/bin/kubectl -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/kubectl -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/kubectl -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/kubectl -p x -k intersting_binaries
+        -w /hostfs/usr/bin/ldd -p x -k intersting_binaries
+        -w /hostfs/bin/ldd -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/ldd -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/ldd -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/ldd -p x -k intersting_binaries
+        -w /hostfs/usr/bin/crashreporter -p x -k intersting_binaries
+        -w /hostfs/bin/crashreporter -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/crashreporter -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/crashreporter -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/crashreporter -p x -k intersting_binaries
+        -w /hostfs/usr/bin/pgrep -p x -k intersting_binaries
+        -w /hostfs/bin/pgrep -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/pgrep -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/pgrep -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/pgrep -p x -k intersting_binaries
+        -w /hostfs/usr/bin/chmod -p x -k intersting_binaries
+        -w /hostfs/bin/chmod -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/chmod -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/chmod -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/chmod -p x -k intersting_binaries
+        -w /hostfs/usr/bin/pulseaudio -p x -k intersting_binaries
+        -w /hostfs/bin/pulseaudio -p x -k intersting_binaries
+        -w /hostfs/usr/sbin/pulseaudio -p x -k intersting_binaries
+        -w /hostfs/usr/local/sbin/pulseaudio -p x -k intersting_binaries
+        -w /hostfs/usr/local/bin/pulseaudio -p x -k intersting_binaries
     - module: system
       datasets:
-        - package 
-        - process
         - login
       period: 30s
       state.period: 12h
