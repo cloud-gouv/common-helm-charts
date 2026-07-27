@@ -10,7 +10,7 @@ type: application
 
 # This is the chart version
 # Versions are expected to follow Semantic Versioning (https://semver.org/)
-version: 0.1.0
+version: 0.2.0
 
 # This is the version number of the application being deployed
 # Versions are not expected to follow Semantic Versioning. They should reflect
