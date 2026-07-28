@@ -28,7 +28,7 @@ receiver:
     <p>
       <strong><font color="{{ .ComputedValues.color }}">{{ .Alert.Status | ToUpper }}</font></strong><br>
       <b>Alert:</b> {{ if .Alert.Annotations.summary }}{{ .Alert.Annotations.summary }}{{ else if .Alert.Annotations.message }}{{ .Alert.Annotations.message }}{{ end }}{{ if .Alert.Labels.severity }} - <b>{{ .Alert.Labels.severity }}</b>{{ end }}<br>
-      <b>AlertID:</b>  {{.Alert.Fingerprint }}<br> 
+      <b>AlertID:</b>  {{.Alert.Fingerprint }}<br>
       <b>Starts At:</b>  {{.Alert.StartsAt }}<br>
       <b>Description:</b> {{ .Alert.Annotations.description }}<br>
       <b>Details:</b><br>
@@ -58,12 +58,12 @@ receiver:
 
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
-  repository: metio/matrix-alertmanager-receiver
+  repository: ghcr.io/cloud-gouv/matrix-alertmanager-receiver
   # This sets the pull policy for images.
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   # renovate: datasource=github-releases depName=metio/matrix-alertmanager-receiver versioning=helm
-  tag: "2025.4.23"
+  tag: "2026-07-28"
 
 # This is for the secretes for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: []
