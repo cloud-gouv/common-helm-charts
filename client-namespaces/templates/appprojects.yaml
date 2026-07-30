@@ -17,8 +17,16 @@ spec:
   destinations:
   - namespace: {{ $clientNamespaceName }}
     server: https://kubernetes.default.svc
+  {{- if $clientNamespaceValue.clusterResources }}
+  clusterResourceWhitelist:
+  {{- range $clientNamespaceValue.clusterResources }}
+    - group: {{ .group }}
+      kind: {{ .kind }}
+  {{- end }}
+  {{- else }}
   # Deny all cluster-scoped resources from being created.
   clusterResourceWhitelist: []
+  {{- end }}
   # Allow all namespaced-scoped resources to be created, except for the one listed below
   namespaceResourceBlacklist:
   - group: ''
