@@ -103,6 +103,25 @@ applications: {}
 #          annotations:
 #            my.company.io/team: platform
 #
+### config to deploy a workload cluster with cluster-core and cluster-workload
+### split into smaller apps, progressively synced in order via an
+### ApplicationSet (strategy.rollingSync), instead of the monolithic
+### cluster-core / cluster-workload apps above.
+### Requires Progressive Syncs enabled on the applicationset-controller
+### (configs.params."applicationsetcontroller.enable.progressive.syncs": "true"
+### on the argo-cd chart), otherwise these apps sync all at once.
+#
+#    cluster-workload-04-dev:
+#      environment: cluster-workload-04-dev
+#      apps:
+#        cluster-api:                       # untouched, its own Application, sync-wave 1
+#        cluster-core-foundation:           # rollout step 1 - namespaces, cert-manager, external-secrets
+#        cluster-core-network:              # rollout step 2 - ingress, envoy-gateway, external-dns
+#        cluster-workload-foundation:       # rollout step 3 - namespaces, cnpg/minio operators, trust-manager, sops, openbao
+#        cluster-workload-platform:         # rollout step 4 - argocd, argocd-apps, autoscalers, metrics-server, clusterctl backup/restore
+#        cluster-workload-observability:    # rollout step 4 (parallel with platform) - prometheus, loki, alloy, auditbeat, matrix-receiver
+#        cluster-workload-tenants:          # rollout step 5 - minio, whoami, per-client resources
+#
 #  ### config of cluster which uses a root apps-of-apps
 #  ### since the source (repoURL, path) is defined globally, you cannot use both "root-app" and "apps" in this file
 #

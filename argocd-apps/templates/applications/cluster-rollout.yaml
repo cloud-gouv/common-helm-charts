@@ -1,0 +1,145 @@
+{{- /*
+Progressive rollout of cluster-core / cluster-workload, split into smaller
+apps synced in dependency order via an ApplicationSet RollingSync strategy,
+instead of the monolithic cluster-core / cluster-workload apps.
+
+Requires Progressive Syncs enabled on the applicationset-controller:
+  configs.params."applicationsetcontroller.enable.progressive.syncs" = "true"
+(argocd-cmd-params-cm), otherwise the strategy is ignored and Applications
+sync as soon as they're created.
+
+Recognized apps (all optional, enable any subset):
+  cluster-core-foundation        - namespaces, cert-manager, external-secrets
+  cluster-core-network           - ingress, envoy-gateway, external-dns
+  cluster-workload-foundation    - namespaces, cnpg/minio operators, trust-manager, sops, openbao
+  cluster-workload-platform      - argocd, argocd-apps, autoscalers, metrics-server, clusterctl backup/restore
+  cluster-workload-observability - prometheus, loki, alloy, auditbeat, matrix-receiver
+  cluster-workload-tenants       - minio, whoami, per-client resources
+*/}}
+{{- $repoURL := .Values.source.repoURL }}
+{{- $components := list
+  (dict "app" "cluster-core-foundation"        "step" "step-1-core-foundation"                 "helmfileFile" "helmfile.d/cluster-step-02-configure-core-foundation"              "compareOptions" "")
+  (dict "app" "cluster-core-network"           "step" "step-2-core-network"                    "helmfileFile" "helmfile.d/cluster-step-02-configure-core-network"                 "compareOptions" "")
+  (dict "app" "cluster-workload-foundation"    "step" "step-3-workload-foundation"              "helmfileFile" "helmfile.d/cluster-step-03-configure-workload-foundation"          "compareOptions" "")
+  (dict "app" "cluster-workload-platform"      "step" "step-4-workload-platform-observability"  "helmfileFile" "helmfile.d/cluster-step-03-configure-workload-platform"            "compareOptions" "ServerSideDiff=true,IncludeMutationWebhook=true")
+  (dict "app" "cluster-workload-observability" "step" "step-4-workload-platform-observability"  "helmfileFile" "helmfile.d/cluster-step-03-configure-workload-observability"       "compareOptions" "")
+  (dict "app" "cluster-workload-tenants"       "step" "step-5-workload-tenants"                 "helmfileFile" "helmfile.d/cluster-step-03-configure-workload-tenants"             "compareOptions" "")
+}}
+{{- range $appName, $appData := .Values.applications }}
+{{- if hasKey $appData "apps" }}
+{{- $enabledComponents := list }}
+{{- range $c := $components }}
+{{- if hasKey $appData.apps $c.app }}
+{{- $data := index $appData.apps $c.app }}
+{{- $enabled := (or (empty $data) (or (not (hasKey $data "enabled")) (eq $data.enabled true))) }}
+{{- if $enabled }}
+{{- $enabledComponents = append $enabledComponents $c }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if gt (len $enabledComponents) 0 }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cluster-rollout-{{ $appName }}
+  namespace: {{ $.Values.namespace }}
+  annotations:
+    # created after cluster-api (sync-wave "1") is healthy; ordering of the
+    # generated apps themselves is then handled by strategy.rollingSync below
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  goTemplate: true
+  generators:
+    - list:
+        elements:
+        {{- range $c := $enabledComponents }}
+          - app: {{ $c.app }}
+            step: {{ $c.step }}
+            helmfileFile: {{ $c.helmfileFile }}
+            compareOptions: {{ $c.compareOptions | quote }}
+        {{- end }}
+  template:
+    metadata:
+      name: '{{`{{.app}}`}}-{{ $appName }}'
+      namespace: {{ $.Values.namespace }}
+      labels:
+        rollout-step: '{{`{{.step}}`}}'
+      annotations:
+        # empty on apps that don't need it (e.g. cluster-workload-platform
+        # runs argocd/argocd-apps/metrics-server/autoscalers, mutated by
+        # admission webhooks incl. argocd's own when the mgmt cluster
+        # manages itself, causing perpetual OutOfSync diffs otherwise)
+        argocd.argoproj.io/compare-options: '{{`{{.compareOptions}}`}}'
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: default
+      destination:
+        namespace: default
+        # here is the name of the target cluster
+        name: {{ $appName | quote }}
+      source:
+        repoURL: {{ $repoURL }}
+        targetRevision: {{ template "argocd-apps.defaultSourceTargetRevision" $ }}
+        path: {{ default (include "argocd-apps.defaultSourcePath" $) $appData.path }}
+        plugin:
+          name: helmfile-v1.0
+          env:
+            - name: ENV_NAME
+              value: {{ default $appName $appData.helmfile_env }}
+            - name: HELMFILE_FILE
+              value: '{{`{{.helmfileFile}}`}}'
+            - name: HELMFILE_MULTI_NAMESPACE
+              value: "true"
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            maxDuration: 3m0s
+            factor: 2
+      # applies to all generated apps; harmless no-op on apps where the
+      # referenced resource doesn't exist
+      ignoreDifferences:
+        - group: ""
+          kind: Secret
+          name: argocd-secret
+          namespace: argocd
+          jsonPointers:
+            - /metadata/annotations/argocd.argoproj.io~1tracking-id
+        - kind: ConfigMap
+          name: prometheus-adapter-client
+          jsonPointers:
+            - /data/config.yaml
+  strategy:
+    type: RollingSync
+    rollingSync:
+      steps:
+        - matchExpressions:
+            - key: rollout-step
+              operator: In
+              values: ["step-1-core-foundation"]
+        - matchExpressions:
+            - key: rollout-step
+              operator: In
+              values: ["step-2-core-network"]
+        - matchExpressions:
+            - key: rollout-step
+              operator: In
+              values: ["step-3-workload-foundation"]
+        - matchExpressions:
+            - key: rollout-step
+              operator: In
+              values: ["step-4-workload-platform-observability"]
+        - matchExpressions:
+            - key: rollout-step
+              operator: In
+              values: ["step-5-workload-tenants"]
+{{- end }}
+{{- end }}
+{{- end }}
