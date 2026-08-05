@@ -33,11 +33,11 @@ spec:
     kind: ResourceQuota
   - group: ''
     kind: LimitRange
-  - group: ''
+  - group: 'networking.k8s.io'
     kind: NetworkPolicy
-  - group: ''
+  - group: 'cilium.io'
     kind: CiliumNetworkPolicy
-  - group: 'argoproj.io/v1alpha1'
+  - group: 'argoproj.io'
     kind: Application
   roles:
   - name: "{{ $clientNamespaceName }}-role"
