@@ -94,4 +94,18 @@ spec:
       {{- end }}
   {{- end }}
   {{- end }}
+
+  {{- with .dynamicModule }}
+  dynamicModule:
+  {{- range . }}
+    - name: {{ .name }}
+      {{- with .filterName }}
+      filterName: {{ . }}
+      {{- end }}
+      {{- with .config }}
+      config:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- end }}
+  {{- end }}
 {{- end }}
