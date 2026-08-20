@@ -2,7 +2,7 @@
 
 on:
   push:
-    branches: [ dev ]
+    branches: [ fix_remove_useless_app ]
 
 jobs:
   publish-dev:
