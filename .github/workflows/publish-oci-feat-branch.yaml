@@ -3,8 +3,8 @@ name: Publish Helm charts to GHCR (OCI) - manual test builds
 on:
   push:
     branches:
-      # - 'feat/**'
-      - 'envoy-gateway-policies-v2'
+      - 'feat/**'
+      - 'fix/**'
 
   workflow_dispatch:
     inputs:
