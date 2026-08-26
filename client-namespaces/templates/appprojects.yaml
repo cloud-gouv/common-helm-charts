@@ -44,6 +44,9 @@ spec:
     # You will need to create this user and set its password.
     groups:
     - user-{{ $clientNamespaceName }}
+    {{- range ($clientNamespaceValue.additionalRoleGroups | default list) }}
+    - {{ . }}
+    {{- end }}
     policies:
     - p, proj:proj-{{ $clientNamespaceName }}:{{ $clientNamespaceName }}-role, applications, *, proj-{{ $clientNamespaceName }}/*, allow
     - p, proj:proj-{{ $clientNamespaceName }}:{{ $clientNamespaceName }}-role, logs, get, proj-{{ $clientNamespaceName }}/*, allow
