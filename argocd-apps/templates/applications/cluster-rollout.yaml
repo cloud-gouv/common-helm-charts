@@ -8,22 +8,33 @@ Requires Progressive Syncs enabled on the applicationset-controller:
 (argocd-cmd-params-cm), otherwise the strategy is ignored and Applications
 sync as soon as they're created.
 
+RollingSync also requires syncPolicy.automated on the generated Applications:
+the controller only annotates them to trigger a sync, it never syncs them
+itself. Without `automated`, apps stay Pending forever and the controller
+re-reconciles in a hot loop (watch -> status write -> watch), which will OOM
+the applicationset-controller.
+
 Recognized apps (all optional, enable any subset):
-  cluster-core-foundation        - namespaces, cert-manager, external-secrets
+  cluster-core-foundation        - core + workload namespaces, cert-manager, external-secrets
   cluster-core-network           - ingress, envoy-gateway, external-dns
-  cluster-workload-foundation    - namespaces, cnpg/minio operators, trust-manager, sops, openbao
+  cluster-workload-foundation    - client namespaces, cnpg/minio operators, trust-manager, sops, openbao
   cluster-workload-platform      - argocd, argocd-apps, autoscalers, metrics-server, clusterctl backup/restore
   cluster-workload-observability - prometheus, loki, alloy, auditbeat, matrix-receiver
   cluster-workload-tenants       - minio, whoami, per-client resources
 */}}
 {{- $repoURL := .Values.source.repoURL }}
+{{- /*
+`prefix` only shapes the generated Application name, so the ArgoCD list sorts in
+rollout order instead of alphabetically. Apps sharing a rollout step share it.
+It is not the `apps:` key in values - those stay unprefixed.
+*/}}
 {{- $components := list
-  (dict "app" "cluster-core-foundation"        "step" "step-1-core-foundation"                 "helmfileFile" "helmfile.d/cluster-step-02-configure-core-foundation"              "compareOptions" "")
-  (dict "app" "cluster-core-network"           "step" "step-2-core-network"                    "helmfileFile" "helmfile.d/cluster-step-02-configure-core-network"                 "compareOptions" "")
-  (dict "app" "cluster-workload-foundation"    "step" "step-3-workload-foundation"              "helmfileFile" "helmfile.d/cluster-step-03-configure-workload-foundation"          "compareOptions" "")
-  (dict "app" "cluster-workload-platform"      "step" "step-4-workload-platform-observability"  "helmfileFile" "helmfile.d/cluster-step-03-configure-workload-platform"            "compareOptions" "ServerSideDiff=true,IncludeMutationWebhook=true")
-  (dict "app" "cluster-workload-observability" "step" "step-4-workload-platform-observability"  "helmfileFile" "helmfile.d/cluster-step-03-configure-workload-observability"       "compareOptions" "")
-  (dict "app" "cluster-workload-tenants"       "step" "step-5-workload-tenants"                 "helmfileFile" "helmfile.d/cluster-step-03-configure-workload-tenants"             "compareOptions" "")
+  (dict "app" "cluster-core-foundation"        "prefix" "step-01" "step" "step-01-core-foundation"                 "helmfileFile" "helmfile.d/cluster-step-02-configure-core-foundation"              "compareOptions" "")
+  (dict "app" "cluster-core-network"           "prefix" "step-02" "step" "step-02-core-network"                    "helmfileFile" "helmfile.d/cluster-step-02-configure-core-network"                 "compareOptions" "")
+  (dict "app" "cluster-workload-foundation"    "prefix" "step-03" "step" "step-03-workload-foundation"             "helmfileFile" "helmfile.d/cluster-step-03-configure-workload-foundation"          "compareOptions" "")
+  (dict "app" "cluster-workload-platform"      "prefix" "step-04" "step" "step-04-workload-platform-observability" "helmfileFile" "helmfile.d/cluster-step-03-configure-workload-platform"            "compareOptions" "ServerSideDiff=true,IncludeMutationWebhook=true")
+  (dict "app" "cluster-workload-observability" "prefix" "step-04" "step" "step-04-workload-platform-observability" "helmfileFile" "helmfile.d/cluster-step-03-configure-workload-observability"       "compareOptions" "")
+  (dict "app" "cluster-workload-tenants"       "prefix" "step-05" "step" "step-05-workload-tenants"                "helmfileFile" "helmfile.d/cluster-step-03-configure-workload-tenants"             "compareOptions" "")
 }}
 {{- range $appName, $appData := .Values.applications }}
 {{- if hasKey $appData "apps" }}
@@ -55,13 +66,14 @@ spec:
         elements:
         {{- range $c := $enabledComponents }}
           - app: {{ $c.app }}
+            prefix: {{ $c.prefix }}
             step: {{ $c.step }}
             helmfileFile: {{ $c.helmfileFile }}
             compareOptions: {{ $c.compareOptions | quote }}
         {{- end }}
   template:
     metadata:
-      name: '{{`{{.app}}`}}-{{ $appName }}'
+      name: '{{`{{.prefix}}`}}-{{`{{.app}}`}}-{{ $appName }}'
       namespace: {{ $.Values.namespace }}
       labels:
         rollout-step: '{{`{{.step}}`}}'
@@ -93,6 +105,15 @@ spec:
             - name: HELMFILE_MULTI_NAMESPACE
               value: "true"
       syncPolicy:
+        # required by RollingSync: the applicationset-controller only triggers
+        # syncs, it doesn't perform them
+        automated:
+          prune: true
+          selfHeal: true
+          # never prune everything when the CMP returns no manifests (e.g. a
+          # bad HELMFILE_FILE path) - an empty desired state would otherwise
+          # wipe namespaces/CRDs managed by the step-01 app
+          allowEmpty: false
         syncOptions:
           - CreateNamespace=true
           - ServerSideApply=true
@@ -123,23 +144,23 @@ spec:
         - matchExpressions:
             - key: rollout-step
               operator: In
-              values: ["step-1-core-foundation"]
+              values: ["step-01-core-foundation"]
         - matchExpressions:
             - key: rollout-step
               operator: In
-              values: ["step-2-core-network"]
+              values: ["step-02-core-network"]
         - matchExpressions:
             - key: rollout-step
               operator: In
-              values: ["step-3-workload-foundation"]
+              values: ["step-03-workload-foundation"]
         - matchExpressions:
             - key: rollout-step
               operator: In
-              values: ["step-4-workload-platform-observability"]
+              values: ["step-04-workload-platform-observability"]
         - matchExpressions:
             - key: rollout-step
               operator: In
-              values: ["step-5-workload-tenants"]
+              values: ["step-05-workload-tenants"]
 {{- end }}
 {{- end }}
 {{- end }}

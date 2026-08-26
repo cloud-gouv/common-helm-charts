@@ -5,6 +5,20 @@
   {{- if eq "argocd-app-of-apps" $app }}
   {{- $enabled := (or (empty $data) (or (not (hasKey $data "enabled")) (eq $data.enabled true))) }}
   {{- if $enabled }}
+  {{- /*
+    argocd-apps.yaml lives in cluster-step-03-configure-workload on clusters still
+    using the monolithic cluster-workload app, and in
+    cluster-step-03-configure-workload-platform once the cluster is split (see
+    cluster-rollout.yaml). Detected from the apps map, overridable per app with
+    `helmfileFile`.
+  */}}
+  {{- $helmfileFile := "helmfile.d/cluster-step-03-configure-workload/argocd-apps.yaml" }}
+  {{- if hasKey $appData.apps "cluster-workload-platform" }}
+  {{- $helmfileFile = "helmfile.d/cluster-step-03-configure-workload-platform/argocd-apps.yaml" }}
+  {{- end }}
+  {{- if and $data (hasKey $data "helmfileFile") }}
+  {{- $helmfileFile = $data.helmfileFile }}
+  {{- end }}
 ---
 #
 # Application configuration for {{ $app }}
@@ -47,7 +61,7 @@ spec:
         - name: ENV_NAME
           value: {{ default $appName $appData.helmfile_env }}
         - name: HELMFILE_FILE
-          value: "helmfile.d/cluster-step-03-configure-workload/argocd-apps.yaml"
+          value: {{ $helmfileFile | quote }}
   syncPolicy:
     syncOptions:
       - CreateNamespace=true
