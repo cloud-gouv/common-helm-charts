@@ -54,6 +54,14 @@ clientNamespaces: {}
 #     quotas: {}                        # simply apply the defaults
 #     limitRanges: {}                   # simply apply the defaults
 #     clusterResources: []
+#     additionalRoleGroups: []          # optional list of extra ArgoCD groups granted
+#                                       # the project-scoped role for this namespace.
+#                                       # The per-namespace local group `user-<name>`
+#                                       # is always added; this list is purely
+#                                       # additive. Use it to share one ArgoCD account
+#                                       # across several AppProjects.
+#                                       # Example:
+#                                       #   additionalRoleGroups: [client-tenant-shared]
 #
 #   sample-2:
 #     labels:
@@ -66,3 +74,4 @@ clientNamespaces: {}
 #     clusterResources:
 #       - group: trust.cert-manager.io
 #         kind: Bundle
+#     additionalRoleGroups: []
