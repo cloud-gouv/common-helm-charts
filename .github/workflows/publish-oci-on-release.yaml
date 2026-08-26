@@ -23,7 +23,7 @@ jobs:
       - name: Login to GHCR
         run: echo "${{ github.token }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-      - name: Detect charts with a new appVersion
+      - name: Detect charts with a new version
         id: detect
         shell: bash
         run: |
@@ -34,26 +34,26 @@ jobs:
           for chart_yaml in */Chart.yaml; do
             dir="$(dirname "$chart_yaml")"
             name="$(yq '.name' "$chart_yaml")"
-            app_version="$(yq '.appVersion' "$chart_yaml")"
-            app_version="${app_version#v}"
+            version="$(yq '.version' "$chart_yaml")"
+            version="${version#v}"
 
-            if [[ -z "$app_version" || "$app_version" == "null" ]]; then
-              echo "::warning::$chart_yaml has no appVersion, skipping"
+            if [[ -z "$version" || "$version" == "null" ]]; then
+              echo "::warning::$chart_yaml has no version, skipping"
               continue
             fi
 
-            if [[ ! "$app_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
-              echo "::warning::$name appVersion '$app_version' is not valid SemVer, skipping"
+            if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+              echo "::warning::$name version '$version' is not valid SemVer, skipping"
               continue
             fi
 
-            if helm show chart "oci://ghcr.io/$namespace/helm/$name" --version "$app_version" >/dev/null 2>&1; then
-              echo "$name@$app_version already published, skipping"
+            if helm show chart "oci://ghcr.io/$namespace/helm/$name" --version "$version" >/dev/null 2>&1; then
+              echo "$name@$version already published, skipping"
               continue
             fi
 
-            echo "$name@$app_version is new, queuing for publish"
-            charts_json=$(jq -c --arg dir "$dir" --arg name "$name" --arg version "$app_version" \
+            echo "$name@$version is new, queuing for publish"
+            charts_json=$(jq -c --arg dir "$dir" --arg name "$name" --arg version "$version" \
               '. + [{"dir": $dir, "name": $name, "version": $version}]' <<<"$charts_json")
           done
 
@@ -85,7 +85,6 @@ jobs:
           mkdir -p dist
           helm package "${{ matrix.chart.dir }}" \
             --version "${{ matrix.chart.version }}" \
-            --app-version "${{ matrix.chart.version }}" \
             -d dist
           helm push "dist/${{ matrix.chart.name }}-${{ matrix.chart.version }}.tgz" \
             "oci://ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/helm"
