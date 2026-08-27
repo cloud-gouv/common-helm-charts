@@ -1,0 +1,179 @@
+name: Cleanup Helm test builds on GHCR
+
+# Supprime les versions de test (prerelease 0.0.0-*) publiees par
+# publish-oci-feat-branch.yaml. Deux declencheurs:
+#   - delete            : nettoyage automatique des versions d'une branche supprimee
+#   - workflow_dispatch : nettoyage manuel, par branche ou par age
+
+on:
+  delete:
+
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Nettoyer les versions de cette branche (vide = purge par age)'
+        required: false
+        default: ''
+      max_age_days:
+        description: "Age max en jours pour la purge (ignore si 'branch' est renseigne)"
+        required: false
+        default: '30'
+      dry_run:
+        description: 'true = simulation, ne supprime rien'
+        required: false
+        default: 'true'
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Delete stale test versions
+        env:
+          # GITHUB_TOKEN suffit si les packages sont bien lies a ce repo.
+          # Sinon, definir le secret GHCR_CLEANUP_TOKEN (PAT avec scope delete:packages).
+          GH_TOKEN: ${{ secrets.GHCR_CLEANUP_TOKEN || github.token }}
+          OWNER: ${{ github.repository_owner }}
+          EVENT: ${{ github.event_name }}
+          DELETED_REF: ${{ github.event.ref }}
+          DELETED_REF_TYPE: ${{ github.event.ref_type }}
+          INPUT_BRANCH: ${{ github.event.inputs.branch }}
+          INPUT_MAX_AGE: ${{ github.event.inputs.max_age_days }}
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          set -euo pipefail
+
+          owner="${OWNER,,}"
+          dry_run="${INPUT_DRY_RUN:-false}"
+          max_age_days="${INPUT_MAX_AGE:-30}"
+
+          # --- Determiner le mode ------------------------------------------------
+          target_slug=""
+
+          if [ "$EVENT" = "delete" ]; then
+            if [ "$DELETED_REF_TYPE" != "branch" ]; then
+              echo "Ref supprimee de type '$DELETED_REF_TYPE', rien a faire"
+              exit 0
+            fi
+            branch="$DELETED_REF"
+          else
+            branch="${INPUT_BRANCH:-}"
+          fi
+
+          if [ -n "$branch" ]; then
+            # meme algorithme de slug que publish-oci-feat-branch.yaml
+            target_slug="$(printf '%s' "$branch" \
+              | tr '[:upper:]' '[:lower:]' \
+              | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' \
+              | cut -c1-40 \
+              | sed -E 's/-+$//')"
+            case "$target_slug" in
+              '') target_slug="branch" ;;
+              *[!0-9]*) ;;
+              *) target_slug="b${target_slug}" ;;
+            esac
+            echo "Mode: purge de la branche '$branch' (slug: $target_slug)"
+          else
+            echo "Mode: purge par age (> ${max_age_days} jours)"
+          fi
+
+          echo "Dry run: $dry_run"
+
+          cutoff_epoch=$(( $(date -u +%s) - max_age_days * 86400 ))
+
+          # --- Lister les packages du repo OCI ----------------------------------
+          packages="$(gh api --paginate \
+            "/orgs/${owner}/packages?package_type=container" \
+            --jq '.[].name' \
+            | grep '^common-helm-charts/' || true)"
+
+          if [ -z "$packages" ]; then
+            echo "Aucun package common-helm-charts/* trouve"
+            exit 0
+          fi
+
+          deleted=0
+          kept=0
+
+          while IFS= read -r pkg; do
+            [ -n "$pkg" ] || continue
+            encoded="${pkg//\//%2F}"
+            echo "::group::$pkg"
+
+            versions="$(gh api --paginate \
+              "/orgs/${owner}/packages/container/${encoded}/versions" \
+              --jq '.[] | {id: .id, updated: .updated_at, tags: (.metadata.container.tags // [])} | @json')"
+
+            while IFS= read -r v; do
+              [ -n "$v" ] || continue
+              id="$(jq -r '.id' <<<"$v")"
+              updated="$(jq -r '.updated' <<<"$v")"
+              mapfile -t tags < <(jq -r '.tags[]?' <<<"$v")
+
+              # Securite: on ne touche qu'aux versions dont TOUS les tags sont des
+              # builds de test. Une version qui porte aussi un tag de release est gardee.
+              if [ "${#tags[@]}" -eq 0 ]; then
+                kept=$((kept + 1))
+                continue
+              fi
+
+              is_test=true
+              matches_slug=false
+              for t in "${tags[@]}"; do
+                case "$t" in
+                  0.0.0-*) ;;
+                  *) is_test=false ;;
+                esac
+                if [ -n "$target_slug" ]; then
+                  case "$t" in
+                    "0.0.0-${target_slug}"|"0.0.0-${target_slug}."*) matches_slug=true ;;
+                  esac
+                fi
+              done
+
+              if [ "$is_test" != true ]; then
+                kept=$((kept + 1))
+                continue
+              fi
+
+              if [ -n "$target_slug" ]; then
+                if [ "$matches_slug" != true ]; then
+                  kept=$((kept + 1))
+                  continue
+                fi
+                reason="branche supprimee"
+              else
+                updated_epoch="$(date -u -d "$updated" +%s)"
+                if [ "$updated_epoch" -ge "$cutoff_epoch" ]; then
+                  kept=$((kept + 1))
+                  continue
+                fi
+                reason="plus vieux que ${max_age_days}j (${updated})"
+              fi
+
+              if [ "$dry_run" = "true" ]; then
+                echo "[dry-run] supprimerait ${pkg}:${tags[*]} ($reason)"
+              else
+                echo "Suppression ${pkg}:${tags[*]} ($reason)"
+                gh api -X DELETE \
+                  "/orgs/${owner}/packages/container/${encoded}/versions/${id}"
+              fi
+              deleted=$((deleted + 1))
+            done <<<"$versions"
+
+            echo "::endgroup::"
+          done <<<"$packages"
+
+          echo "Versions ciblees: $deleted | conservees: $kept"
+          {
+            echo "### Cleanup GHCR test builds"
+            echo ""
+            echo "- Mode: ${target_slug:+branche \`$target_slug\`}${target_slug:-age > ${max_age_days}j}"
+            echo "- Dry run: \`$dry_run\`"
+            echo "- Versions ciblees: **$deleted**"
+            echo "- Versions conservees: **$kept**"
+          } >> "$GITHUB_STEP_SUMMARY"
