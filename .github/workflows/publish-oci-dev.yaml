@@ -2,7 +2,7 @@
 
 on:
   push:
-    branches: [ dev ]
+    branches: '*'
 
 jobs:
   publish-dev:
