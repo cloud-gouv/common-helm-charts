@@ -1,0 +1,30 @@
+╔══════════════════════════════════════════════════════════════╗
+║      Envoy Gateway Policies & Routes — Installed!            ║
+╚══════════════════════════════════════════════════════════════╝
+
+Release  : {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+Chart    : {{ .Chart.Name }}-{{ .Chart.Version }}
+
+Resources deployed:
+  ListenerSet          : {{ len .Values.listenerSets }}
+  HTTPRoute            : {{ len .Values.httpRoutes }}
+  GRPCRoute            : {{ len .Values.grpcRoutes }}
+  TCPRoute             : {{ len .Values.tcpRoutes }}
+  TLSRoute             : {{ len .Values.tlsRoutes }}
+  UDPRoute             : {{ len .Values.udpRoutes }}
+  ReferenceGrant       : {{ len .Values.referenceGrants }}
+  Backend              : {{ len .Values.backends }}
+  SecurityPolicy       : {{ len .Values.securityPolicies }}
+  BackendTLSPolicy     : {{ len .Values.backendTLSPolicies }}
+  BackendLBPolicy      : {{ len .Values.backendLBPolicies }}
+  ClientTrafficPolicy  : {{ len .Values.clientTrafficPolicies }}
+  BackendTrafficPolicy : {{ len .Values.backendTrafficPolicies }}
+  EnvoyPatchPolicy     : {{ len .Values.envoyPatchPolicies }}
+  EnvoyExtensionPolicy : {{ len .Values.envoyExtensionPolicies }}
+
+Verify:
+  kubectl get httproute,listenerset,referencegrant -n {{ .Release.Namespace }}
+  kubectl get securitypolicy,backendtrafficpolicy  -n {{ .Release.Namespace }}
+
+Docs: https://gateway.envoyproxy.io/docs/
