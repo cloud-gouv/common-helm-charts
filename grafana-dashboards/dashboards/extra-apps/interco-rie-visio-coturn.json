@@ -2533,19 +2533,19 @@
     }
   ],
   "preload": false,
-  "refresh": "10s",
+  "refresh": "30s",
   "schemaVersion": 41,
   "tags": [],
   "templating": {
     "list": []
   },
   "time": {
-    "from": "2026-09-04T07:58:57.631Z",
-    "to": "2026-09-04T07:59:21.481Z"
+    "from": "now-6h",
+    "to": "now"
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Coturn - Visio Copy",
+  "title": "Interco RIE - Visio - Coturn",
   "uid": "ffwcvm5dty22oc",
   "version": 75
 }
