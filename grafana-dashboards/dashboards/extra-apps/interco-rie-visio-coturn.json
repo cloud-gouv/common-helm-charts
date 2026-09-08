@@ -365,7 +365,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "orange"
+              },
+              {
+                "color": "green",
+                "value": 1
               }
             ]
           },
@@ -953,6 +957,8 @@
           "displayMode": "table",
           "placement": "right",
           "showLegend": true,
+          "sortBy": "Last *",
+          "sortDesc": false,
           "width": 350
         },
         "tooltip": {
@@ -1769,7 +1775,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "light-blue"
+              },
+              {
+                "color": "green",
+                "value": 10
               },
               {
                 "color": "#EAB839",
@@ -1854,7 +1864,7 @@
               },
               {
                 "color": "red",
-                "value": 80
+                "value": 1
               }
             ]
           }
@@ -1867,7 +1877,7 @@
         "x": 0,
         "y": 57
       },
-      "id": 35,
+      "id": 50,
       "options": {
         "colorMode": "background_solid",
         "graphMode": "area",
@@ -1883,7 +1893,7 @@
         },
         "showPercentChange": false,
         "text": {},
-        "textMode": "name",
+        "textMode": "value_and_name",
         "wideLayout": true
       },
       "pluginVersion": "11.6.0",
@@ -1894,13 +1904,13 @@
             "uid": "mimir_ft"
           },
           "editorMode": "code",
-          "expr": "sum by (instance) (node_systemd_unit_state{name=\"strongswan.service\",Role=\"strongswan\",source=\"access\",Zone=\"high-traffic\"})",
+          "expr": "node_systemd_unit_state{name=\"strongswan.service\",Role=\"strongswan\",source=\"access\",Zone=\"high-traffic\",state=\"failed\"}",
           "legendFormat": "{{instance}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Strongswan availability",
+      "title": "Failing Strongswan ",
       "transformations": [
         {
           "id": "renameByRegex",
@@ -1928,6 +1938,10 @@
             "steps": [
               {
                 "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 1
               }
             ]
           }
@@ -1967,13 +1981,13 @@
             "uid": "mimir_ft"
           },
           "editorMode": "code",
-          "expr": "sum by (instance) (node_systemd_unit_state{name=\"coturn.service\",Role=\"coturn-visio\",source=\"access\",Zone=\"high-traffic\"})",
+          "expr": "sum by (instance) (node_systemd_unit_state{name=\"coturn.service\",Role=\"coturn-visio\",source=\"access\",Zone=\"high-traffic\",state=\"failed\"})",
           "legendFormat": "{{instance}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Coturn availability",
+      "title": "Failing Coturn ",
       "transformations": [
         {
           "id": "renameByRegex",
@@ -2106,6 +2120,84 @@
       "fieldConfig": {
         "defaults": {
           "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 64
+      },
+      "id": 51,
+      "options": {
+        "colorMode": "background_solid",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {},
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir_ft"
+          },
+          "editorMode": "code",
+          "expr": "node_systemd_unit_state{name=\"cloud-final.service\",source=\"access\",Zone=\"high-traffic\",state=\"failed\"}",
+          "format": "time_series",
+          "legendFormat": "{{Name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Failing cloud-init",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "high-traffic-(.*)-high-traffic-(.*)",
+            "renamePattern": "$1-$2"
+          }
+        }
+      ],
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir_ft"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
             "mode": "palette-classic"
           },
           "custom": {
@@ -2163,7 +2255,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 64
+        "y": 71
       },
       "id": 25,
       "options": {
@@ -2314,6 +2406,130 @@
         }
       ],
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki_ft"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 25,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 80
+      },
+      "id": 48,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki_ft"
+          },
+          "direction": "backward",
+          "editorMode": "code",
+          "expr": "sum by(beneficiary) (\n    count_over_time(\n        {service_name=\"coturn.service\"}\n        |= \"remote \"\n        | regexp \"remote (?P<user_ip>([0-9]+[.]){3}[0-9]+)\"\n        | user_ip = ip(\"100.64.16.0/24\")\n        | label_format beneficiary=\"Exemple (100.64.16.0/24)\"\n        [$__auto]\n    )\n) ",
+          "hide": true,
+          "legendFormat": "{{beneficiary}}",
+          "queryType": "range",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki_ft"
+          },
+          "direction": "backward",
+          "editorMode": "code",
+          "expr": "sum by(beneficiary) (\n    count_over_time(\n        {service_name=\"coturn.service\"}\n        |= \"remote \"\n        | regexp \"remote (?P<user_ip>([0-9]+[.]){3}[0-9]+)\"\n        | user_ip = ip(\"100.64.0.0/20\")\n        | label_format beneficiary=\"Exemple (100.64.0.0/20)\"\n        [$__auto]\n    )\n) ",
+          "hide": true,
+          "legendFormat": "{{beneficiary}}",
+          "queryType": "range",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki_ft"
+          },
+          "direction": "backward",
+          "editorMode": "code",
+          "expr": "sum by(beneficiary) (\n    count_over_time(\n        {service_name=\"coturn.service\"}\n        |= \"remote \"\n        | regexp \"remote (?P<user_ip>([0-9]+[.]){3}[0-9]+)\"\n        | user_ip != ip(\"100.64.16.0/24\") != ip(\"100.64.0.0/20\")\n        | label_format beneficiary=\"Autres\"\n        [$__auto]\n    )\n) ",
+          "hide": false,
+          "legendFormat": "{{beneficiary}}",
+          "queryType": "range",
+          "refId": "B"
+        }
+      ],
+      "title": "(wip] Nombre d'allocations par bénéficiaire",
+      "type": "timeseries"
     }
   ],
   "preload": false,
@@ -2331,5 +2547,5 @@
   "timezone": "",
   "title": "Interco RIE - Visio - Coturn",
   "uid": "ffwcvm5dty22oc",
-  "version": 59
+  "version": 75
 }
