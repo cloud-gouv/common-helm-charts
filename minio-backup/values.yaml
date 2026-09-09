@@ -50,6 +50,8 @@ minio:
   namespace: minio-datastore
 
 restic:
+  # Create secret or not
+  create: true
   # Don't forget to set bucket name as well
   repository: s3:https://oos.eu-west-2.outscale.com/bucket
   # repositoryPassword can be anything you like it is used to encrypt/decrypt files in repo
