@@ -1,0 +1,19 @@
+# This is customization of the upstream Helm chart for ITSM-NG (https://github.com/itsmng/itsm-ng)
+# The objective is to contribute back upstream with the changes made here,
+# so that the chart can be used in a more generic way.
+# However, we have no guarantee that these changes will be accepted rapidly upstream,
+# so we maintain our own fork of the chart temporarily here.
+
+apiVersion: v2
+name: itsm-ng
+description: ITSM-NG Helm chart for Kubernetes customized by OPICloud
+
+type: application
+version: 0.1.0
+appVersion: 2.1.5
+
+dependencies:
+- condition: mariadb-galera.enabled
+  name: mariadb-galera
+  repository: https://charts.bitnami.com/bitnami
+  version: 16.0.1

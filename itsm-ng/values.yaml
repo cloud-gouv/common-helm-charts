@@ -1,0 +1,78 @@
+itsmweb:
+  replicas: 2
+
+  # SecurityContext specific to pods
+  # podSecurityContext: {}
+
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    privileged: false
+
+  # the ingress map is reworked to support:
+  # - explicit ingressClassName
+  # - annotations (i.e. for cert-manager TLS)
+  # - TLS configuration (enabled, secretName)
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-production
+    hostname: prod.k3s.itsm-ng.local
+    tls:
+      enabled: true
+      secretName: itsmweb-tls
+  
+  database:
+    # To use internal mariadb cluster use <release name>-mariadb-galera
+    hostname: prod-mariadb-galera
+    user:
+      username: itsmng
+      password: itsmng
+    dbname: itsmng
+  
+  image:
+    repository: docker.io/itsmng/itsm-ng
+    tag: latest
+    pullPolicy: Always
+ 
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 8080
+  type: ClusterIP
+
+  resources:
+    limits:
+      cpu: "1"
+      memory: "200Mi"
+    requests:
+      cpu: 500m
+      memory: "100Mi"
+
+  pvc:
+    storageClassName: local-path
+
+    itsmConfig:
+      storageRequest: 10Mi
+    itsmFiles:
+      storageRequest: 15Gi
+    itsmPlugin:
+      storageRequest: 2Gi
+  
+  cronjob:
+    image:
+      repository: docker.io/itsmng/itsm-ng
+      tag: latest-cron
+      pullPolicy: Always
+
+# MariaDB Galera
+mariadb-galera:
+  enabled: true
+  replicaCount: 2
+  db:
+    name: "itsmng"
+    user: 'itsmng'
+    password: "itsmng"
+
+  global:
+    defaultStorageClass: local-path

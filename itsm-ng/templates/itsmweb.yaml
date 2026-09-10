@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "itsm-ng.fullname" . }}-itsmweb
+  labels:
+  {{- include "itsm-ng.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.itsmweb.type }}
+  selector:
+    app: itsmweb
+  {{- include "itsm-ng.selectorLabels" . | nindent 4 }}
+  ports:
+	{{- .Values.itsmweb.ports | toYaml | nindent 2 -}}

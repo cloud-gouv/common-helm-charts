@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "itsm-ng.fullname" . }}-itsmweb
+  labels:
+  {{- include "itsm-ng.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.itsmweb.replicas }}
+  selector:
+    matchLabels:
+      app: itsmweb
+    {{- include "itsm-ng.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: itsmweb
+      {{- include "itsm-ng.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - env:
+        - name: MARIADB_HOST
+          value: {{ .Values.itsmweb.database.hostname }}
+        - name: MARIADB_DATABASE
+          value: {{ .Values.itsmweb.database.dbname }}
+        - name: MARIADB_USER
+          value: {{ .Values.itsmweb.database.user.username }}
+        - name: MARIADB_PASSWORD
+          value: {{ .Values.itsmweb.database.user.password }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.itsmweb.image.repository }}:{{ .Values.itsmweb.image.tag | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.itsmweb.image.pullPolicy }}
+        name: itsmweb
+        ports:
+        - containerPort: 8080
+        resources:
+          limits:
+            cpu: {{ .Values.itsmweb.resources.limits.cpu }}
+            memory: {{ .Values.itsmweb.resources.limits.memory }}
+          requests:
+            cpu: {{ .Values.itsmweb.resources.requests.cpu }}
+            memory: {{ .Values.itsmweb.resources.requests.memory }}
+        {{- if .Values.itsmweb.containerSecurityContext }}
+        securityContext: {{- toYaml .Values.itsmweb.containerSecurityContext | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - mountPath: /var/www/itsm-ng/config
+          name: itsm-config
+        - mountPath: /var/www/itsm-ng/files
+          name: itsm-files
+        - mountPath: /var/www/itsm-ng/plugins
+          name: itsm-plugin
+      {{- if .Values.itsmweb.podSecurityContext }}
+      securityContext: {{- toYaml .Values.itsmweb.podSecurityContext | nindent 8 }}
+      {{- end }}
+      volumes:
+      - name: itsm-config
+        persistentVolumeClaim:
+          claimName: {{ include "itsm-ng.fullname" . }}-config
+      - name: itsm-files
+        persistentVolumeClaim:
+          claimName: {{ include "itsm-ng.fullname" . }}-files
+      - name: itsm-plugin
+        persistentVolumeClaim:
+          claimName: {{ include "itsm-ng.fullname" . }}-plugin

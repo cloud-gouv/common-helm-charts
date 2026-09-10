@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "itsm-ng.fullname" . }}-plugin
+  labels:
+  {{- include "itsm-ng.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ .Values.itsmweb.pvc.storageClassName }}
+  resources:
+    requests:
+      storage: {{ .Values.itsmweb.pvc.itsmPlugin.storageRequest | quote }}
