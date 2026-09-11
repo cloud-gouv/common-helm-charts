@@ -1,0 +1,34 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "itsm-ng.fullname" . }}-itsmweb-ingress
+  labels:
+  {{- include "itsm-ng.labels" . | nindent 4 }}
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    {{- range $key, $value := .Values.itsmweb.ingress.annotations }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+spec:
+  {{- if .Values.itsmweb.ingress.ingressClassName }}
+  ingressClassName: {{ .Values.itsmweb.ingress.ingressClassName }}
+  {{- end }}
+  
+  rules:
+  - host: {{ .Values.itsmweb.ingress.hostname }}
+    http:
+      paths:
+      - backend:
+          service:
+            name: {{ include "itsm-ng.fullname" . }}-itsmweb
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+  
+  {{- if .Values.itsmweb.ingress.tls.enabled | default false }}
+  tls:
+  - hosts:
+    - {{ .Values.itsmweb.ingress.hostname }}
+    secretName: {{ .Values.itsmweb.ingress.tls.secretName }}
+  {{- end }}

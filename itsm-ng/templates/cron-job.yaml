@@ -1,0 +1,50 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: itsmng-cron
+spec:
+  schedule: "*/2 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: itsmng-cron
+        spec:
+          restartPolicy: OnFailure # Correctement défini au niveau du Pod
+          containers:
+          - name: itsmng-cron-cron
+            image: {{ .Values.itsmweb.cronjob.image.repository }}:{{ .Values.itsmweb.cronjob.image.tag | default "latest-cron" }}
+            imagePullPolicy: {{ .Values.itsmweb.cronjob.image.pullPolicy }}
+            env:
+              - name: MARIADB_HOST
+                value: {{ .Values.itsmweb.database.hostname }}
+            {{- if .Values.itsmweb.cronjob.resources }}
+            resources:
+              {{- toYaml .Values.itsmweb.cronjob.resources | nindent 14 }}
+            {{- end }}
+            {{- if .Values.itsmweb.containerSecurityContext }}
+            securityContext: {{- toYaml .Values.itsmweb.containerSecurityContext | nindent 14 }}
+            {{- end }}
+            volumeMounts:
+              - mountPath: /var/www/itsm-ng/config
+                name: itsm-config
+              - mountPath: /var/www/itsm-ng/files
+                name: itsm-files
+              - mountPath: /var/www/itsm-ng/plugins
+                name: itsm-plugin
+          {{- if .Values.itsmweb.podSecurityContext }}
+          securityContext: {{- toYaml .Values.itsmweb.podSecurityContext | nindent 12 }}
+          {{- end }}
+          volumes: # Placé au bon niveau
+          - name: itsm-config
+            persistentVolumeClaim:
+              claimName: {{ include "itsm-ng.fullname" . }}-config
+          - name: itsm-files
+            persistentVolumeClaim:
+              claimName: {{ include "itsm-ng.fullname" . }}-files
+          - name: itsm-plugin
+            persistentVolumeClaim:
+              claimName: {{ include "itsm-ng.fullname" . }}-plugin
+
