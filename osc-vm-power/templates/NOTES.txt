@@ -1,0 +1,19 @@
+osc-vm-power a été déployé dans le namespace {{ .Release.Namespace }}.
+
+CronJobs :
+  - {{ include "osc-vm-power.fullname" . }}-stop  ({{ .Values.schedule.stop }} {{ .Values.schedule.timeZone }})
+  - {{ include "osc-vm-power.fullname" . }}-start ({{ .Values.schedule.start }} {{ .Values.schedule.timeZone }})
+
+Vérifier :
+  kubectl get cronjobs -n {{ .Release.Namespace }}
+{{- if not .Values.secret.create }}
+
+Le Secret "{{ .Values.secret.name }}" doit exister dans le namespace {{ .Release.Namespace }}
+(clés {{ .Values.secret.accessKeyKey }} / {{ .Values.secret.secretKeyKey }}), par exemple :
+
+  kubectl create secret generic {{ .Values.secret.name }} -n {{ .Release.Namespace }} \
+    --from-literal={{ .Values.secret.accessKeyKey }}=xxxxxxxx \
+    --from-literal={{ .Values.secret.secretKeyKey }}=xxxxxxxx
+
+Ou repasser --set secret.create=true --set secret.accessKey=... --set secret.secretKey=... au déploiement.
+{{- end }}

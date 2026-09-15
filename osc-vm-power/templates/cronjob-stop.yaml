@@ -1,0 +1,52 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "osc-vm-power.fullname" . }}-stop
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "osc-vm-power.labels" . | nindent 4 }}
+{{- $mgmtExcluded := has "mgmt" .Values.osc.excludedClusterSubstrings }}
+spec:
+  schedule: {{ .Values.schedule.stop | quote }}
+  timeZone: {{ .Values.schedule.timeZone | quote }}
+  suspend: {{ not .Values.stopEnabled }}
+  concurrencyPolicy: {{ .Values.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      # mgmt exclu -> pas de self-stop possible, retries normaux. mgmt inclus -> le
+      # Job peut s'arrêter lui-même, donc pas de retry pour éviter la boucle infinie.
+      backoffLimit: {{ if $mgmtExcluded }}{{ .Values.backoffLimit }}{{ else }}0{{ end }}
+      activeDeadlineSeconds: {{ .Values.activeDeadlineSeconds }}
+      template:
+        metadata:
+          labels:
+            {{- include "osc-vm-power.labels" . | nindent 12 }}
+        spec:
+          {{- include "osc-vm-power.imagePullSecrets" . | nindent 10 }}
+          serviceAccountName: {{ include "osc-vm-power.serviceAccountName" . }}
+          restartPolicy: Never
+          containers:
+            - name: {{ include "osc-vm-power.fullname" . }}-stop
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              args: ["stop"]
+              envFrom:
+                - configMapRef:
+                    name: {{ include "osc-vm-power.fullname" . }}-config
+              env:
+                - name: OSC_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.secret.name }}
+                      key: {{ .Values.secret.accessKeyKey }}
+                - name: OSC_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.secret.name }}
+                      key: {{ .Values.secret.secretKeyKey }}
+              {{- with .Values.resources }}
+              resources:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}

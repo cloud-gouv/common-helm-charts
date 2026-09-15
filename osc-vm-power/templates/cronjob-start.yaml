@@ -1,0 +1,49 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "osc-vm-power.fullname" . }}-start
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "osc-vm-power.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.schedule.start | quote }}
+  timeZone: {{ .Values.schedule.timeZone | quote }}
+  suspend: {{ not .Values.startEnabled }}
+  concurrencyPolicy: {{ .Values.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.backoffLimit }}
+      activeDeadlineSeconds: {{ .Values.activeDeadlineSeconds }}
+      template:
+        metadata:
+          labels:
+            {{- include "osc-vm-power.labels" . | nindent 12 }}
+        spec:
+          {{- include "osc-vm-power.imagePullSecrets" . | nindent 10 }}
+          serviceAccountName: {{ include "osc-vm-power.serviceAccountName" . }}
+          restartPolicy: Never
+          containers:
+            - name: {{ include "osc-vm-power.fullname" . }}-start
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              args: ["start"]
+              envFrom:
+                - configMapRef:
+                    name: {{ include "osc-vm-power.fullname" . }}-config
+              env:
+                - name: OSC_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.secret.name }}
+                      key: {{ .Values.secret.accessKeyKey }}
+                - name: OSC_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.secret.name }}
+                      key: {{ .Values.secret.secretKeyKey }}
+              {{- with .Values.resources }}
+              resources:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}

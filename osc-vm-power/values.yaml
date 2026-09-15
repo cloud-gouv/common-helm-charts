@@ -1,0 +1,79 @@
+image:
+  repository: ghcr.io/cloud-gouv/outscale-vm-power
+  tag: f76ef39
+  pullPolicy: IfNotPresent
+
+# Secret kubernetes.io/dockerconfigjson créé par le chart pour tirer l'image depuis
+# un registre privé (les packages GHCR le sont par défaut). Il est ajouté d'office
+# aux imagePullSecrets des Jobs : pas besoin de répéter son nom ci-dessous.
+imagePullSecret:
+  # Si false, le Secret doit déjà exister dans le namespace et être listé dans imagePullSecrets.
+  create: false
+  name: regcred-opicloud
+  registry: ghcr.io
+  # Jamais de credentials ici : ce fichier est committé en clair. username / password
+  # (PAT GitHub, scope read:packages) viennent de secrets/osc.enc.yaml, chiffré avec SOPS.
+  username: ""
+  password: ""
+
+# Secrets de type kubernetes.io/dockerconfigjson supplémentaires, déjà présents dans le namespace.
+imagePullSecrets: []
+#  - name: ghcr-creds
+
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  # Defaults to the chart fullname when empty.
+  name: ""
+
+osc:
+  region: eu-west-2
+  # Version de l'API cluster.x-k8s.io exposée par le cluster (kubectl api-resources | grep machines)
+  capiMachineApiVersion: v1beta1
+  # Sous-chaînes du nom de cluster (label cluster.x-k8s.io/cluster-name) à exclure du
+  # start/stop, ex. le cluster mgmt. Liste vide pour inclure aussi le mgmt.
+  excludedClusterSubstrings: []
+  #  - mgmt
+  #  - lve
+  #  - swa
+
+secret:
+  # Si false, `name` doit référencer un Secret existant, avec les clés accessKeyKey/secretKeyKey ci-dessous.
+  create: false
+  name: cluster-api-provider-outscale
+  # Jamais de credentials ici
+  accessKey: ""
+  secretKey: ""
+  # Noms des clés dans le Secret (existant ou créé par le chart).
+  accessKeyKey: access_key
+  secretKeyKey: secret_key
+
+schedule:
+  timeZone: "Europe/Paris"
+  start: "0 8 * * 1-5"
+  stop: "0 20 * * 1-5"
+
+# Si false, le CronJob de démarrage est suspendu : les VMs restent éteintes après le stop
+startEnabled: false
+
+# Si false, le CronJob d'arrêt est suspendu : les VMs ne sont plus coupées automatiquement.
+stopEnabled: true
+
+# Si true, les Jobs listent les VMs et journalisent ce qu'ils feraient, sans rien arrêter/démarrer.
+dryRun: false
+
+concurrencyPolicy: Forbid
+# Toujours utilisé pour le CronJob start. Pour le stop : seulement si "mgmt" est
+# dans osc.excludedClusterSubstrings (donc le Job ne peut pas s'arrêter lui-même).
+# Sinon, le CronJob stop force backoffLimit à 0 : un pod tué en plein milieu (mgmt
+# qui se coupe lui-même) ne doit pas être rejoué au redémarrage du cluster, sinon
+# il relance le stop immédiatement (boucle infinie).
+backoffLimit: 1
+# Filet de sécurité : si le pod meurt sans jamais remonter d'état, le Job passe en
+# Failed au lieu de rester bloqué indéfiniment une fois le contrôleur de retour.
+activeDeadlineSeconds: 600
+successfulJobsHistoryLimit: 3
+failedJobsHistoryLimit: 3
+
+resources: {}
