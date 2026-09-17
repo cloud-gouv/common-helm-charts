@@ -1,0 +1,21 @@
+{{/*
+    this template aims at generating the ValidatingAdmissionPolicyBinding
+    disallowing the client namespaces from scheduling pods tolerating
+    control-plane taints
+*/}}
+
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: disallow-control-plane-toleration-binding
+  labels:
+    {{- include "client-namespaces.labels" . | nindent 4 }}
+spec:
+  policyName: disallow-control-plane-toleration
+  validationActions: ["Deny"]
+  matchResources:
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values: ["kube-system"]
