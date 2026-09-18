@@ -27,11 +27,19 @@ spec:
           {{- include "osc-vm-power.imagePullSecrets" . | nindent 10 }}
           serviceAccountName: {{ include "osc-vm-power.serviceAccountName" . }}
           restartPolicy: Never
+          {{- with .Values.podSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           containers:
             - name: {{ include "osc-vm-power.fullname" . }}-stop
               image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
               imagePullPolicy: {{ .Values.image.pullPolicy }}
               args: ["stop"]
+              {{- with .Values.securityContext }}
+              securityContext:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
               envFrom:
                 - configMapRef:
                     name: {{ include "osc-vm-power.fullname" . }}-config
