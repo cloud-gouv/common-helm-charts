@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "osc-vm-power.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "osc-vm-power.labels" . | nindent 4 }}
+data:
+  OSC_REGION: {{ .Values.osc.region | quote }}
+  CAPI_MACHINE_API_VERSION: {{ .Values.osc.capiMachineApiVersion | quote }}
+  EXCLUDED_CLUSTER_SUBSTRINGS: {{ .Values.osc.excludedClusterSubstrings | join "," | quote }}
+  DRY_RUN: {{ .Values.dryRun | quote }}
