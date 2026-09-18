@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nubo-worker-scaler.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "nubo-worker-scaler.labels" . | nindent 4 }}
+data:
+  INCLUDED_CLUSTER_SUBSTRINGS: {{ join "," .Values.scaler.includedClusterSubstrings | quote }}
+  EXCLUDED_CLUSTER_SUBSTRINGS: {{ join "," .Values.scaler.excludedClusterSubstrings | quote }}
+  CAPI_API_VERSION: {{ .Values.scaler.apiVersion | quote }}
+  FALLBACK_REPLICAS: {{ .Values.scaler.fallbackReplicas | quote }}
+  POLL_INTERVAL_SECONDS: {{ .Values.scaler.pollIntervalSeconds | quote }}
+  POLL_TIMEOUT_SECONDS: {{ .Values.scaler.pollTimeoutSeconds | quote }}
+  NO_WAIT: {{ .Values.scaler.noWait | quote }}
+  DRY_RUN: {{ .Values.dryRun | quote }}

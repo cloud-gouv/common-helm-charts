@@ -1,0 +1,16 @@
+{{ include "nubo-worker-scaler.fullname" . }} est installé dans le namespace {{ .Release.Namespace }}.
+
+  scale-down : {{ .Values.schedule.down }} ({{ .Values.schedule.timeZone }}){{ if not .Values.downEnabled }} — SUSPENDU{{ end }}
+  scale-up   : {{ .Values.schedule.up }} ({{ .Values.schedule.timeZone }}){{ if not .Values.upEnabled }} — SUSPENDU{{ end }}
+  périmètre  : clusters contenant {{ join ", " .Values.scaler.includedClusterSubstrings | default "(tous)" }}, hors {{ join ", " .Values.scaler.excludedClusterSubstrings | default "(aucune exclusion)" }}
+{{- if .Values.dryRun }}
+
+  DRY_RUN est actif : les Jobs valident leurs patchs (dryRun=All) sans rien modifier.
+{{- end }}
+
+Vérifier le périmètre avant la première nuit :
+
+  kubectl -n {{ .Release.Namespace }} create job --from=cronjob/{{ include "nubo-worker-scaler.fullname" . }}-down scaler-dryrun \
+    --dry-run=client -o yaml | kubectl set env --local -f - DRY_RUN=true -o yaml | kubectl apply -f -
+  kubectl -n {{ .Release.Namespace }} logs -f job/scaler-dryrun
+  kubectl -n {{ .Release.Namespace }} delete job scaler-dryrun
