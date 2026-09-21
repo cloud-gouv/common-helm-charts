@@ -1,7 +1,8 @@
 name: Cleanup Helm test builds on GHCR
 
 # Supprime les versions de test (prerelease 0.0.0-*) publiees par
-# publish-oci-feat-branch.yaml. Deux declencheurs:
+# publish-oci-feat-branch.yaml dans le namespace <owner>/common-helm-charts/*.
+# Deux declencheurs:
 #   - delete            : nettoyage automatique des versions d'une branche supprimee
 #   - workflow_dispatch : nettoyage manuel, par branche ou par age
 
@@ -23,6 +24,9 @@ on:
         required: false
         default: 'true'
 
+env:
+  TEST_NAMESPACE: common-helm-charts
+
 jobs:
   cleanup:
     runs-on: ubuntu-latest
@@ -34,9 +38,8 @@ jobs:
     steps:
       - name: Delete stale test versions
         env:
-          # GITHUB_TOKEN suffit si les packages sont bien lies a ce repo.
-          # Sinon, definir le secret GHCR_CLEANUP_TOKEN (PAT avec scope delete:packages).
           GH_TOKEN: ${{ secrets.GHCR_CLEANUP_TOKEN || github.token }}
+          HAS_PAT: ${{ secrets.GHCR_CLEANUP_TOKEN != '' }}
           OWNER: ${{ github.repository_owner }}
           EVENT: ${{ github.event_name }}
           DELETED_REF: ${{ github.event.ref }}
@@ -50,6 +53,7 @@ jobs:
           owner="${OWNER,,}"
           dry_run="${INPUT_DRY_RUN:-false}"
           max_age_days="${INPUT_MAX_AGE:-30}"
+          namespace="${TEST_NAMESPACE}"
 
           # --- Determiner le mode ------------------------------------------------
           target_slug=""
@@ -68,7 +72,8 @@ jobs:
             target_slug="$(printf '%s' "$branch" \
               | tr '[:upper:]' '[:lower:]' \
               | sed 's/[^a-z0-9]/-/g' \
-              | sed 's/^-*//' \
+              | tr -s '-' \
+              | sed 's/^-*//; s/-*$//' \
               | cut -c1-40 \
               | sed 's/-*$//')"
             case "$target_slug" in
@@ -77,22 +82,41 @@ jobs:
               *) target_slug="b${target_slug}" ;;
             esac
             echo "Mode: purge de la branche '$branch' (slug: $target_slug)"
+            mode_label="branche \`$target_slug\`"
           else
             echo "Mode: purge par age (> ${max_age_days} jours)"
+            mode_label="age > ${max_age_days}j"
           fi
 
           echo "Dry run: $dry_run"
+          echo "Namespace cible: ${owner}/${namespace}/*"
 
           cutoff_epoch=$(( $(date -u +%s) - max_age_days * 86400 ))
 
           # --- Lister les packages du repo OCI ----------------------------------
-          packages="$(gh api --paginate \
-            "/orgs/${owner}/packages?package_type=container" \
-            --jq '.[].name' \
-            | grep '^common-helm-charts/' || true)"
+
+          if ! all_packages="$(gh api --paginate \
+              "/orgs/${owner}/packages?package_type=container" \
+              --jq '.[].name')"; then
+            echo "::error::Echec du listing des packages de l'organisation '${owner}'."
+            if [ "$HAS_PAT" = "true" ]; then
+              echo "GHCR_CLEANUP_TOKEN est defini: verifier ses scopes"
+              echo "(read:packages + delete:packages) et son autorisation SSO sur l'org."
+            else
+              echo "GHCR_CLEANUP_TOKEN n'est pas defini, le GITHUB_TOKEN d'Actions est utilise."
+              echo "HTTP 400 'Invalid argument' = ce jeton n'est pas accepte par l'API Packages."
+              echo "Creer un PAT classique (read:packages + delete:packages), l'autoriser en SSO"
+              echo "sur l'organisation, et le stocker dans le secret GHCR_CLEANUP_TOKEN."
+            fi
+            exit 1
+          fi
+
+          packages="$(grep "^${namespace}/" <<<"$all_packages" || true)"
 
           if [ -z "$packages" ]; then
-            echo "Aucun package common-helm-charts/* trouve"
+            echo "::warning::Aucun package ${namespace}/* trouve parmi $(grep -c . <<<"$all_packages") package(s) de l'organisation"
+            echo "Packages visibles:"
+            sed 's/^/  - /' <<<"$all_packages"
             exit 0
           fi
 
@@ -172,7 +196,8 @@ jobs:
           {
             echo "### Cleanup GHCR test builds"
             echo ""
-            echo "- Mode: ${target_slug:+branche \`$target_slug\`}${target_slug:-age > ${max_age_days}j}"
+            echo "- Namespace: \`${owner}/${namespace}/*\`"
+            echo "- Mode: ${mode_label}"
             echo "- Dry run: \`$dry_run\`"
             echo "- Versions ciblees: **$deleted**"
             echo "- Versions conservees: **$kept**"
