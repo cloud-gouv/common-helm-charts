@@ -4,8 +4,8 @@
     control-plane taints
 */}}
 
-{{/* the disallow-control-plane-toleration policy is deployed by another release, so skip the binding if it isn't present in the cluster */}}
-{{- if lookup "admissionregistration.k8s.io/v1" "ValidatingAdmissionPolicy" "" "disallow-control-plane-toleration" }}
+{{/* the disallow-control-plane-toleration policy is deployed by another release, so deploy the binding only if it is present in the cluster */}}
+{{- if .Values.validatingAdmissionPolicyEnabled }}
 {{- range $clientNamespaceName, $_ := .Values.clientNamespaces }}
 ---
 apiVersion: admissionregistration.k8s.io/v1
