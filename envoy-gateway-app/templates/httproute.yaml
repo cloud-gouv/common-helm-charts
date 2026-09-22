@@ -62,15 +62,9 @@ spec:
           namespace: {{ . }}
           {{- end }}
           port: {{ .port }}
-          {{- with .weight }}
-          weight: {{ . }}
-          {{- end }}
-          {{- with .group }}
-          group: {{ . }}
-          {{- end }}
-          {{- with .kind }}
-          kind: {{ . }}
-          {{- end }}
+          weight: {{ hasKey . "weight" | ternary .weight 1 }}
+          group: {{ .group | default "\"\"" }}
+          kind: {{ .kind | default "Service" }}
           {{- with .filters }}
           filters:
             {{- include "envoy-gateway-app.httpFilters" . | nindent 12 }}
