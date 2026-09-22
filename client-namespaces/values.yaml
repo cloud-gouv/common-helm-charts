@@ -8,6 +8,8 @@
 # is "namespace-rw"
 clusterRoleRW: "namespace-rw"
 
+validatingAdmissionPolicyEnabled: true
+
 # these are the default values that will be used if not documented
 # in the 'clientNamespaces' object
 defaults:
@@ -32,7 +34,6 @@ defaults:
     defaultRequestCpu: "10m"
     defaultRequestMemory: "10Mi"
     defaultLimitMemory: "10Mi"
-
 
 # imagePullSecret: 
 #   name: regcred-opicloud
