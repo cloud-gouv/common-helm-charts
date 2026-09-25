@@ -8,3 +8,11 @@ rules:
   - apiGroups: ["cluster.x-k8s.io"]
     resources: ["machines"]
     verbs: ["get", "list"]
+  {{- if .Values.osc.perTenantCredentials }}
+  - apiGroups: ["cluster.x-k8s.io"]
+    resources: ["clusters"]
+    verbs: ["get"]
+  - apiGroups: ["infrastructure.cluster.x-k8s.io"]
+    resources: ["oscclusters"]
+    verbs: ["get"]
+  {{- end }}

@@ -9,4 +9,5 @@ data:
   OSC_REGION: {{ .Values.osc.region | quote }}
   CAPI_MACHINE_API_VERSION: {{ .Values.osc.capiMachineApiVersion | quote }}
   EXCLUDED_CLUSTER_SUBSTRINGS: {{ .Values.osc.excludedClusterSubstrings | join "," | quote }}
+  PER_TENANT_CREDENTIALS: {{ .Values.osc.perTenantCredentials | quote }}
   DRY_RUN: {{ .Values.dryRun | quote }}

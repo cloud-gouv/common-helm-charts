@@ -31,6 +31,13 @@ osc:
   region: eu-west-2
   # Version de l'API cluster.x-k8s.io exposée par le cluster (kubectl api-resources | grep machines)
   capiMachineApiVersion: v1beta1
+  # Si true, chaque cluster est arrêté/démarré avec les credentials de son tenant, ceux
+  # utilisés par CAPOSC : Cluster.spec.infrastructureRef -> OscCluster.spec.credentials.fromSecret
+  # -> Secret (access_key, secret_key, region). Sans fromSecret (le mgmt), ce sont ceux de `secret`.
+  # Si false, toutes les VMs sont pilotées avec `secret` (clusters dans le tenant du mgmt).
+  perTenantCredentials: false
+  # Namespace des Cluster/OscCluster et des Secrets de tenant (utilisé si perTenantCredentials).
+  clustersNamespace: default
   # Sous-chaînes du nom de cluster (label cluster.x-k8s.io/cluster-name) à exclure du
   # start/stop, ex. le cluster mgmt. Liste vide pour inclure aussi le mgmt.
   excludedClusterSubstrings: []
