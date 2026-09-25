@@ -1,14 +1,14 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: {{ include "nubo-worker-scaler.fullname" . }}-down
+  name: {{ include "nubo-worker-scaler.fullname" . }}-stop
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "nubo-worker-scaler.labels" . | nindent 4 }}
 spec:
-  schedule: {{ .Values.schedule.down | quote }}
+  schedule: {{ .Values.schedule.stop | quote }}
   timeZone: {{ .Values.schedule.timeZone | quote }}
-  suspend: {{ not .Values.downEnabled }}
+  suspend: {{ not .Values.stopEnabled }}
   concurrencyPolicy: {{ .Values.concurrencyPolicy }}
   successfulJobsHistoryLimit: {{ .Values.successfulJobsHistoryLimit }}
   failedJobsHistoryLimit: {{ .Values.failedJobsHistoryLimit }}
