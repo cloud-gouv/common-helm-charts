@@ -2,7 +2,7 @@
 
 on:
   push:
-    branches: [ dev ]
+    branches: [ fix_remove_useless_app ]
 
 jobs:
   publish-dev:
@@ -31,7 +31,7 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          repo="oci://ghcr.io/${OWNER}/common-helm-charts"
+          repo="oci://ghcr.io/${OWNER}/helm"
           short_sha="${SHA:0:7}"
 
           mkdir -p dist
