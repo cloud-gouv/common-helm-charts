@@ -72,7 +72,12 @@ concurrencyPolicy: Forbid
 backoffLimit: 1
 # Filet de sécurité : si le pod meurt sans jamais remonter d'état, le Job passe en
 # Failed au lieu de rester bloqué indéfiniment une fois le contrôleur de retour.
-activeDeadlineSeconds: 600
+# Doit couvrir (backoffLimit + 1) x (pollTimeoutSeconds + ~5 min d'appel StartVms/StopVms
+# avec les retries du SDK), sinon un retry est coupé en route.
+activeDeadlineSeconds: 2100
+# Temps max d'attente pour que toutes les VMs atteignent l'état visé, après quoi le pod
+# sort en erreur. Un démarrage à froid de plusieurs clusters peut dépasser 5 min.
+pollTimeoutSeconds: 600
 successfulJobsHistoryLimit: 3
 failedJobsHistoryLimit: 3
 
