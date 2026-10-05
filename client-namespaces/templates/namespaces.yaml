@@ -15,10 +15,17 @@ metadata:
     {{- with (index (index $.Values.clientNamespaces $clientNamespaceName) "labels") }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-  {{- with (index (index $.Values.clientNamespaces $clientNamespaceName) "nodePool") }}
+  {{- $nodePool := index (index $.Values.clientNamespaces $clientNamespaceName) "nodePool" }}
+  {{- $annotations := index (index $.Values.clientNamespaces $clientNamespaceName) "annotations" }}
+  {{- if or $nodePool $annotations }}
   annotations:
+    {{- with $nodePool }}
     # enforced by the PodNodeSelector admission plugin
     scheduler.alpha.kubernetes.io/node-selector: node-restriction.kubernetes.io/node-pool={{ . }}
+    {{- end }}
+    {{- with $annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   {{- end }}
   {{- end }}
 {{- end }}

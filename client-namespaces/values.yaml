@@ -51,6 +51,8 @@ clientNamespaces: {}
 #   sample-1:                           # name of the namespace
 #     labels:                           # optional labels to apply to the namespace
 #       mysuperlabel: testlabel
+#     annotations:                      # optional annotations to apply to the namespace
+#       myannotation: test
 #     nodePool: sensitive               # optional node pool the pods are restricted to
 #                                       # (PodNodeSelector admission plugin), if not set
 #                                       # the cluster default node selector applies

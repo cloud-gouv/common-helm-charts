@@ -67,10 +67,6 @@ spec:
         maxDuration: 3m0s
         factor: 2
   ignoreDifferences:
-    - kind: ConfigMap
-      name: prometheus-adapter-client
-      jsonPointers:
-        - /data/config.yaml      
     - group: ""
       kind: Secret
       name: argocd-secret
