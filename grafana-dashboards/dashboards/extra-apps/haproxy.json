@@ -19,13 +19,13 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 39,
+  "id": 45,
   "links": [],
   "panels": [
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "mimir_dev"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -106,7 +106,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "mimir_dev"
+            "uid": "${datasource}"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -125,7 +125,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "mimir_dev"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -206,7 +206,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "mimir_dev"
+            "uid": "${datasource}"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -221,7 +221,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "mimir_dev"
+            "uid": "${datasource}"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -242,7 +242,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "mimir_dev"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -323,7 +323,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "mimir_dev"
+            "uid": "${datasource}"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -339,7 +339,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "mimir_dev"
+            "uid": "${datasource}"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -356,7 +356,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "mimir_dev"
+            "uid": "${datasource}"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -376,7 +376,8 @@
     },
     {
       "datasource": {
-        "uid": "mimir_dev"
+        "type": "prometheus",
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -455,6 +456,10 @@
       "pluginVersion": "11.6.0",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "disableTextWrap": false,
           "editorMode": "builder",
           "expr": "haproxy_backend_current_queue{component_type=\"$component_type\", appliance_type=\"$appliance_type\", project=\"$project_name\"}",
@@ -468,7 +473,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "mimir_dev"
+            "uid": "${datasource}"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -495,8 +500,8 @@
       {
         "allowCustomValue": false,
         "current": {
-          "text": "",
-          "value": ""
+          "text": "Mimir / prd clusters",
+          "value": "mimir_ft"
         },
         "label": "Source de données",
         "name": "datasource",
@@ -514,15 +519,15 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "mimir_dev"
+          "uid": "${datasource}"
         },
-        "definition": "label_values(component_type)",
+        "definition": "label_values({source=\"access\", appliance_type=\"$appliance_type\"},component_type)",
         "label": "Type de composant",
         "name": "component_type",
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(component_type)",
+          "query": "label_values({source=\"access\", appliance_type=\"$appliance_type\"},component_type)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
@@ -530,45 +535,35 @@
         "type": "query"
       },
       {
-        "allowCustomValue": false,
         "current": {
           "text": "reverse_proxy",
           "value": "reverse_proxy"
         },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "mimir_dev"
-        },
-        "definition": "label_values(appliance_type)",
+        "description": "",
+        "hide": 2,
         "label": "Type de machines",
         "name": "appliance_type",
-        "options": [],
-        "query": {
-          "qryType": 1,
-          "query": "label_values(appliance_type)",
-          "refId": "PrometheusVariableQueryEditor-VariableQuery"
-        },
-        "refresh": 1,
-        "regex": "",
-        "type": "query"
+        "query": "reverse_proxy",
+        "skipUrlSync": true,
+        "type": "constant"
       },
       {
         "allowCustomValue": false,
         "current": {
-          "text": "pouet",
-          "value": "pouet"
+          "text": "alpha_sandbox",
+          "value": "alpha_sandbox"
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "mimir_dev"
+          "uid": "${datasource}"
         },
-        "definition": "label_values(project)",
+        "definition": "label_values({source=\"access\", component_type=\"$component_type\", appliance_type=\"$appliance_type\"},project)",
         "label": "Nom du projet",
         "name": "project_name",
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(project)",
+          "query": "label_values({source=\"access\", component_type=\"$component_type\", appliance_type=\"$appliance_type\"},project)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
@@ -584,6 +579,6 @@
   "timepicker": {},
   "timezone": "browser",
   "title": "HAProxy",
-  "uid": "ffltezv8ko16of",
-  "version": 10
+  "uid": "ffltezv8ko16oe",
+  "version": 8
 }
