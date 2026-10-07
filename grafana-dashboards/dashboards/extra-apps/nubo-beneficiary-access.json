@@ -1,0 +1,1052 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 43,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 8,
+      "panels": [],
+      "repeat": "project",
+      "title": "Publication \"${project}\"",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir_ft"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Requests",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 50,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir_ft"
+          },
+          "editorMode": "code",
+          "expr": "delta(haproxy_frontend_connections_total{source=\"access\",appliance_type=\"reverse_proxy\",component_type=\"${component_type}\",proxy=\"443-tcp\",project=\"${project}\"}[2m]) / 120",
+          "legendFormat": "Requêtes par secondes (port 443) ({{ availability_zone }})",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "HAProxy chaine d'accès (frontend reqs/s)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir_ft"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 50,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir_ft"
+          },
+          "editorMode": "code",
+          "expr": "haproxy_backend_current_sessions{source=\"access\",appliance_type=\"reverse_proxy\",component_type=\"${component_type}\",project=\"${project}\",proxy=\"cluster_k8s_workload_1:443\"}",
+          "legendFormat": "Sessions",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "HAProxy Chaine d'accès (sessions courantes backend)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir_ft"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Kbps",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 50,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": [
+          {
+            "__systemRef": "hideSeriesFrom",
+            "matcher": {
+              "id": "byNames",
+              "options": {
+                "mode": "exclude",
+                "names": [
+                  "RX pub_out (AZ1)"
+                ],
+                "prefix": "All except:",
+                "readOnly": true
+              }
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 11
+      },
+      "id": 1,
+      "maxPerRow": 2,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir_ft"
+          },
+          "editorMode": "code",
+          "expr": "delta(node_network_receive_bytes_total{source=\"access\", component_type=\"${component_type}\", appliance_type=\"firewall\", project=\"${project}\",device=~\"^(?:pub_in|pub_out|admin)$\"}[2m]) / 120 * 8 / 1024",
+          "legendFormat": "RX {{device}} ({{ availability_zone }}) (avg over 2m)",
+          "range": true,
+          "refId": "Incoming traffic"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir_ft"
+          },
+          "editorMode": "code",
+          "expr": "-delta(node_network_transmit_bytes_total{source=\"access\", component_type=\"${component_type}\", appliance_type=\"firewall\", project=\"${project}\",device=~\"^(?:pub_in|pub_out|admin)$\"}[2m]) / 120 * 8 / 1024",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "TX {{device}} ({{ availability_zone }}) (avg over 2m)",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir_ft"
+          },
+          "editorMode": "code",
+          "expr": "delta(node_network_receive_bytes_total{source=\"access\", component_type=\"${component_type}\", appliance_type=\"firewall\", project=\"${project}\",device=~\"^(?:pub_in|pub_out|admin)$\"}[1h]) / 3600 * 8 / 1024",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Average RX {{ device }} {{ availability_zone }} over 1h",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir_ft"
+          },
+          "editorMode": "code",
+          "expr": "delta(node_network_receive_bytes_total{source=\"access\", component_type=\"${component_type}\", appliance_type=\"firewall\", project=\"${project}\",device=~\"^(?:pub_in|pub_out|admin)$\"}[1h] offset 7d) / 3600 * 8 / 1024",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Average RX {{ device }} {{ availability_zone }} over 1h (last week)",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir_ft"
+          },
+          "editorMode": "code",
+          "expr": "-delta(node_network_transmit_bytes_total{source=\"access\", component_type=\"${component_type}\", appliance_type=\"firewall\", project=\"${project}\",device=~\"^(?:pub_in|pub_out|admin)$\"}[1h]) / 3600 * 8 / 1024",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Average TX {{ device }} {{ availability_zone }} over 1h",
+          "range": true,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir_ft"
+          },
+          "editorMode": "code",
+          "expr": "-delta(node_network_transmit_bytes_total{source=\"access\", component_type=\"${component_type}\", appliance_type=\"firewall\", project=\"${project}\",device=~\"^(?:pub_in|pub_out|admin)$\"}[1h] offset 7d) / 3600 * 8 / 1024",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Average TX {{ device }} {{ availability_zone }} over 1h (last week)",
+          "range": true,
+          "refId": "E"
+        }
+      ],
+      "title": "Trafic sur les firewall de la chaine d'accès ",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir_ft"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "PPS (avg over 2m)",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 50,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.6.0",
+      "repeat": "interface_in",
+      "repeatDirection": "h",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir_ft"
+          },
+          "editorMode": "code",
+          "expr": "delta(node_network_receive_packets_total{source=\"access\",appliance_type=\"firewall\",component_type=\"${component_type}\",device=~\"^(?:pub_in|pub_out|admin)$\",project=\"${project}\"}[2m]) / 120",
+          "legendFormat": "RX {{device}} ({{ availability_zone }})",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir_ft"
+          },
+          "editorMode": "code",
+          "expr": "-delta(node_network_transmit_packets_total{source=\"access\",appliance_type=\"firewall\",component_type=\"${component_type}\",device=~\"^(?:pub_in|pub_out|admin)$\",project=\"${project}\"}[2m]) / 120",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "TX {{device}} ({{ availability_zone }})",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Paquets sur les firewall de la chaine d'accès",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir_ft"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Failed DNS queries"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 33
+      },
+      "id": 5,
+      "options": {
+        "displayLabels": [
+          "name",
+          "value"
+        ],
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": false,
+          "values": [
+            "value"
+          ]
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir_ft"
+          },
+          "editorMode": "code",
+          "expr": "avg by (source, component_type, job) (probe_success{source=\"access\",component_type=\"${component_type}\",job=\"integrations/blackbox/dns\",project=\"${project}\"}) * 100",
+          "format": "time_series",
+          "legendFormat": "Successful DNS queries",
+          "range": true,
+          "refId": "DNS (success)"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir_ft"
+          },
+          "editorMode": "code",
+          "expr": "(1 - avg by (source, component_type, job) (probe_success{source=\"access\",component_type=\"${component_type}\",job=\"integrations/blackbox/dns\",project=\"${project}\"})) * 100",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Failed DNS queries",
+          "range": true,
+          "refId": "DNS Failure"
+        }
+      ],
+      "title": "DNS Probe Check",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir_ft"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Failed DNS queries"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Failed ICMP queries"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 6,
+        "y": 33
+      },
+      "id": 11,
+      "options": {
+        "displayLabels": [
+          "name",
+          "value"
+        ],
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": false,
+          "values": [
+            "value"
+          ]
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir_ft"
+          },
+          "editorMode": "code",
+          "expr": "avg by (source, component_type, job) (probe_success{source=\"access\",component_type=\"${component_type}\",job=\"integrations/blackbox/icmp\",project=\"${project}\"}) * 100",
+          "format": "time_series",
+          "legendFormat": "Successful ICMP queries",
+          "range": true,
+          "refId": "DNS (success)"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir_ft"
+          },
+          "editorMode": "code",
+          "expr": "(1 - avg by (source, component_type, job) (probe_success{source=\"access\",component_type=\"${component_type}\",job=\"integrations/blackbox/icmp\",project=\"${project}\"})) * 100",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Failed ICMP queries",
+          "range": true,
+          "refId": "DNS Failure"
+        }
+      ],
+      "title": "ICMP Probe Check",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir_ft"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Failed DNS queries"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Failed HTTP queries"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 33
+      },
+      "id": 10,
+      "options": {
+        "displayLabels": [
+          "name",
+          "value"
+        ],
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": false,
+          "values": [
+            "value"
+          ]
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir_ft"
+          },
+          "editorMode": "code",
+          "expr": "avg by (source, component_type, job) (probe_success{source=\"access\",component_type=\"${component_type}\",job=\"integrations/blackbox/http\",project=\"${project}\"}) * 100",
+          "format": "time_series",
+          "legendFormat": "Successful HTTP queries",
+          "range": true,
+          "refId": "DNS (success)"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir_ft"
+          },
+          "editorMode": "code",
+          "expr": "(1 - avg by (source, component_type, job) (probe_success{source=\"access\",component_type=\"${component_type}\",job=\"integrations/blackbox/http\",project=\"${project}\"})) * 100",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Failed HTTP queries",
+          "range": true,
+          "refId": "DNS Failure"
+        }
+      ],
+      "title": "HTTP Probe Check",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir_ft"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Failed DNS queries"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 33
+      },
+      "id": 12,
+      "options": {
+        "displayLabels": [
+          "name",
+          "value"
+        ],
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": false,
+          "values": [
+            "value"
+          ]
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir_ft"
+          },
+          "editorMode": "code",
+          "expr": "avg by (source, component_type, job) (probe_success{source=\"access\",component_type=\"${component_type}\",job=\"integrations/blackbox/tcp\",project=\"${project}\"}) * 100",
+          "format": "time_series",
+          "legendFormat": "Successful TCP queries",
+          "range": true,
+          "refId": "DNS (success)"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir_ft"
+          },
+          "editorMode": "code",
+          "expr": "(1 - avg by (source, component_type, job) (probe_success{source=\"access\",component_type=\"${component_type}\",job=\"integrations/blackbox/tcp\",project=\"${project}\"})) * 100",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Failed TCP queries",
+          "range": true,
+          "refId": "DNS Failure"
+        }
+      ],
+      "title": "TCP Probe Check",
+      "type": "piechart"
+    }
+  ],
+  "preload": false,
+  "schemaVersion": 41,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "allowCustomValue": false,
+        "current": {
+          "text": [
+            "alpha_sandbox",
+            "proconnect_federation_preprod",
+            "proconnect_federation_prod",
+            "proconnect_federation_sandbox"
+          ],
+          "value": [
+            "alpha_sandbox",
+            "proconnect_federation_preprod",
+            "proconnect_federation_prod",
+            "proconnect_federation_sandbox"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "mimir_ft"
+        },
+        "definition": "label_values({source=\"access\"},project)",
+        "includeAll": false,
+        "multi": true,
+        "name": "project",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values({source=\"access\"},project)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "allowCustomValue": false,
+        "current": {
+          "text": "proxies_appli",
+          "value": "proxies_appli"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "mimir_ft"
+        },
+        "definition": "label_values({source=\"access\"},component_type)",
+        "name": "component_type",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values({source=\"access\"},component_type)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "regex": "/proxies_(?:appli|admin)/",
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Chaines d'accès bénéficiaires",
+  "uid": "cfzsxi3s9perke",
+  "version": 143
+}

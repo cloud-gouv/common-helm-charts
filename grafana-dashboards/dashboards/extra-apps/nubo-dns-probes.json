@@ -1,0 +1,376 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 44,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 3,
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir_ft"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "axisSoftMax": 1,
+                "axisSoftMin": 0,
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 10,
+            "w": 24,
+            "x": 0,
+            "y": 1
+          },
+          "id": 4,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "11.6.0",
+          "repeat": "domains",
+          "repeatDirection": "h",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "mimir_ft"
+              },
+              "editorMode": "code",
+              "expr": "probe_success{source=\"access\",job=\"integrations/blackbox/dns\",component_type=\"${component_type}\",dns_server=\"${dns_resolvers:raw}\",domain=\"${domains:raw}\"}",
+              "legendFormat": "{{project}} / {{protocol }}",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "mimir_ft"
+              },
+              "editorMode": "code",
+              "expr": "avg by (source, job, component_type, dns_server, domain) (probe_success{source=\"access\",job=\"integrations/blackbox/dns\",component_type=\"${component_type}\",dns_server=\"${dns_resolvers:raw}\",domain=\"${domains:raw}\"})",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "Moyenne des probes",
+              "range": true,
+              "refId": "B"
+            }
+          ],
+          "title": "Domain ${domains} by ${dns_resolvers}",
+          "type": "timeseries"
+        }
+      ],
+      "repeat": "dns_resolvers",
+      "title": "Per Resolver ${dns_resolvers}",
+      "type": "row"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "id": 2,
+      "panels": [],
+      "repeat": "domains",
+      "title": "Domain ${domains}",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir_ft"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "axisSoftMax": 1,
+            "axisSoftMin": 0,
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 2
+      },
+      "id": 1,
+      "maxPerRow": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.6.0",
+      "repeat": "dns_resolvers",
+      "repeatDirection": "h",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir_ft"
+          },
+          "editorMode": "code",
+          "expr": "probe_success{source=\"access\",job=\"integrations/blackbox/dns\",component_type=\"${component_type}\",dns_server=\"${dns_resolvers:raw}\",domain=\"${domains:raw}\"}",
+          "legendFormat": "{{project}} / {{protocol}}",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir_ft"
+          },
+          "editorMode": "code",
+          "expr": "avg by (source, job, component_type, dns_server, domain) (probe_success{source=\"access\",job=\"integrations/blackbox/dns\",component_type=\"${component_type}\",dns_server=\"${dns_resolvers:raw}\",domain=\"${domains:raw}\"})",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Moyenne des probes",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Resolver ${dns_resolvers} \"${domains}\"",
+      "type": "timeseries"
+    }
+  ],
+  "preload": false,
+  "schemaVersion": 41,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "allowCustomValue": false,
+        "current": {
+          "text": "proxies_appli",
+          "value": "proxies_appli"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "mimir_ft"
+        },
+        "definition": "label_values(probe_success,component_type)",
+        "includeAll": false,
+        "name": "component_type",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(probe_success,component_type)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "regex": "/proxies_(?:admin|appli|infra)/",
+        "type": "query"
+      },
+      {
+        "allowCustomValue": false,
+        "current": {
+          "text": [
+            "auth.agentconnect.gouv.fr"
+          ],
+          "value": [
+            "auth.agentconnect.gouv.fr"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "mimir_ft"
+        },
+        "definition": "label_values(probe_success{job=\"integrations/blackbox/dns\", component_type=\"$component_type\"},domain)",
+        "includeAll": false,
+        "multi": true,
+        "name": "domains",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(probe_success{job=\"integrations/blackbox/dns\", component_type=\"$component_type\"},domain)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "allowCustomValue": false,
+        "current": {
+          "text": [
+            "1.1.1.1"
+          ],
+          "value": [
+            "1.1.1.1"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "mimir_ft"
+        },
+        "definition": "label_values({job=\"integrations/blackbox/dns\", component_type=\"$component_type\"},dns_server)",
+        "includeAll": false,
+        "multi": true,
+        "name": "dns_resolvers",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values({job=\"integrations/blackbox/dns\", component_type=\"$component_type\"},dns_server)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "External probes (DNS)",
+  "uid": "dfzwbsiz8w0sgb",
+  "version": 53
+}
