@@ -10,6 +10,12 @@ clusterRoleRW: "namespace-rw"
 
 validatingAdmissionPolicyEnabled: true
 
+argocd:
+  rbacEnabled: false
+  namespace: argocd
+  controllerServiceAccount: argocd-application-controller
+  serverServiceAccount: argocd-server
+
 # these are the default values that will be used if not documented
 # in the 'clientNamespaces' object
 defaults:

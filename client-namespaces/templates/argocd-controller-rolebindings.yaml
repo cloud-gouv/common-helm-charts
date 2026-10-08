@@ -1,0 +1,20 @@
+{{- if .Values.argocd.rbacEnabled }}
+{{- range $clientNamespaceName, $_ := .Values.clientNamespaces }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: argocd-controller-namespace
+  namespace: {{ $clientNamespaceName }}
+  labels:
+    {{- include "client-namespaces.labels" $ | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $.Values.argocd.controllerServiceAccount }}
+    namespace: {{ $.Values.argocd.namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: argocd-controller-namespace
+{{- end }}
+{{- end }}
