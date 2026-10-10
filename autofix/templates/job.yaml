@@ -1,0 +1,104 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "autofix.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "autofix.labels" . | nindent 4 }}
+  annotations:
+    {{- include "autofix.hookAnnotations" . | nindent 4 }}
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 0
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "autofix.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "autofix.serviceAccountName" . }}
+      restartPolicy: Never
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.image.registry}}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            {{- toYaml .Values.command | nindent 12 }}
+          args:
+            {{- tpl (toYaml .Values.args | nindent 12) . }}
+          {{- if or .Values.env .Values.envTemplate }}
+          env:
+            {{- with .Values.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+            {{- with .Values.envTemplate }}
+            {{- tpl (toYaml . | nindent 12) $ }}
+            {{- end }}
+          {{- end }}
+          {{- with .Values.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if or .Values.volumes .Values.tmpDir.create }}
+          volumeMounts:
+            {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+            {{- if .Values.tmpDir.create }}
+            - name: tmp
+              {{- toYaml  .Values.tmpDir.mountSpec | nindent 14 }}
+            {{- end }}
+            {{- if or .Values.extraFiles .Values.extraFilesTemplate }}
+            - name: extra
+              mountPath: {{ .Values.extraFilesMountPath }}
+            {{- end }}
+          {{- end }}
+      {{- if or .Values.volumes .Values.tmpDir.create }}
+      volumes:
+        {{- with .Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if .Values.tmpDir.create }}
+        - name: tmp
+          {{- toYaml  .Values.tmpDir.volumeSpec | nindent 10 }}
+        {{- end }}
+        {{- if or .Values.extraFiles .Values.extraFilesTemplate }}
+        - name: extra
+          configMap:
+            name: {{ include "autofix.fullname" . }}
+        {{- end }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -6,6 +6,7 @@
 ## Charts disponibles
 
 - `argocd-apps`
+- `autofix`
 - `cert-manager-issuers`
 - `client-namespaces`
 - `clusterctl-backup`
