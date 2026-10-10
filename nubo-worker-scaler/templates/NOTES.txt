@@ -1,0 +1,20 @@
+nubo-worker-scaler a été déployé dans le namespace {{ .Release.Namespace }}.
+
+CronJobs :
+  - {{ include "nubo-worker-scaler.fullname" . }}-stop  ({{ .Values.schedule.stop }} {{ .Values.schedule.timeZone }}){{ if not .Values.stopEnabled }} — SUSPENDU{{ end }}
+  - {{ include "nubo-worker-scaler.fullname" . }}-start ({{ .Values.schedule.start }} {{ .Values.schedule.timeZone }}){{ if not .Values.startEnabled }} — SUSPENDU{{ end }}
+
+Périmètre : tous les clusters, hors {{ join ", " .Values.nubo.excludedClusterSubstrings | default "(aucune exclusion)" }}
+{{- if .Values.dryRun }}
+
+DRY_RUN est actif : les Jobs valident leurs patchs (dryRun=All) sans rien modifier.
+{{- end }}
+
+Vérifier :
+  kubectl get cronjobs -n {{ .Release.Namespace }}
+
+Vérifier le périmètre avant la première nuit :
+  kubectl -n {{ .Release.Namespace }} create job --from=cronjob/{{ include "nubo-worker-scaler.fullname" . }}-stop scaler-dryrun \
+    --dry-run=client -o yaml | kubectl set env --local -f - DRY_RUN=true -o yaml | kubectl apply -f -
+  kubectl -n {{ .Release.Namespace }} logs -f job/scaler-dryrun
+  kubectl -n {{ .Release.Namespace }} delete job scaler-dryrun

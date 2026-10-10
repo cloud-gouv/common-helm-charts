@@ -1,0 +1,66 @@
+image:
+  repository: <REGISTRY>/nubo-worker-scaler
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+#  - name: ghcr-creds
+
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  # Defaults to the chart fullname when empty.
+  name: ""
+
+nubo:
+  # Version de l'API cluster.x-k8s.io exposée par le cluster (kubectl api-resources | grep machinedeployments).
+  # Vide = version préférée annoncée par le cluster (v1beta1 avant CAPI 1.11, v1beta2 ensuite).
+  capiMachineApiVersion: ""
+  # Sous-chaînes du nom de cluster (label cluster.x-k8s.io/cluster-name) à exclure du
+  # start/stop. Tous les autres clusters sont traités. Le cluster mgmt héberge ces CronJobs :
+  # le laisser exclu évite qu'il supprime ses propres workers.
+  excludedClusterSubstrings:
+    - mgmt
+  # Replicas appliqués au start quand l'annotation de sauvegarde manque.
+  # 0 désactive ce repli : une MachineDeployment à 0 non stoppée par cet outil reste à 0.
+  fallbackReplicas: 1
+  # Attente de convergence : suppression effective des Machines au stop, Machines Ready au start.
+  pollIntervalSeconds: 15
+  pollTimeoutSeconds: 900
+  # true : le Job sort dès les patchs appliqués, sans attendre les Machines.
+  noWait: false
+
+schedule:
+  timeZone: "Europe/Paris"
+  start: "0 8 * * 1-5"
+  stop: "0 20 * * 1-5"
+
+# Si false, le CronJob de démarrage est suspendu : les workers restent supprimés après le stop.
+startEnabled: true
+
+# Si false, le CronJob d'arrêt est suspendu : les workers ne sont plus supprimés automatiquement.
+stopEnabled: true
+
+# Si true, les Jobs rejouent leurs patchs avec dryRun=All : RBAC et admission sont
+# exercés, aucune MachineDeployment n'est modifiée.
+dryRun: false
+
+concurrencyPolicy: Forbid
+backoffLimit: 2
+# Filet de sécurité : au-delà, le Job passe en Failed plutôt que de rester bloqué.
+# Garder une marge sur nubo.pollTimeoutSeconds.
+activeDeadlineSeconds: 1200
+successfulJobsHistoryLimit: 3
+failedJobsHistoryLimit: 3
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 64Mi
+  limits:
+    memory: 128Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
