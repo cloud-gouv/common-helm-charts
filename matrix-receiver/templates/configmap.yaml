@@ -24,7 +24,7 @@ data:
       {{- toYaml .Values.receiver.computedValues | nindent 8 }}
       # template for alerts in status 'firing'
       firing-template: |
-      {{- toString .Values.receiver.firingTemplate | nindent 8 }}
+      {{- toString .Values.receiver.firingTemplate | replace "IDENTITY_PLACEHOLDER" .Values.receiver.identity | nindent 8 }}
       # template for alerts in status 'resolved', if not specified will use the firing-template
       resolved-template: |
-      {{- toString .Values.receiver.resolvedTemplate | nindent 8 }}
+      {{- toString .Values.receiver.resolvedTemplate | replace "IDENTITY_PLACEHOLDER" .Values.receiver.identity | nindent 8 }}
