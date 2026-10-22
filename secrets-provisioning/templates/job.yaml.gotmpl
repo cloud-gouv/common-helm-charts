@@ -50,7 +50,7 @@ spec:
               {{- end }}
             {{- end }}
             {{- end }}
-            
+
           command:
             - bash
             - -euo
@@ -75,11 +75,31 @@ spec:
               echo "Token capabilities OK."
 
               ##── Already exists? ─────────────────────────────────────────
-              if [ "${FORCE_ROTATE_PASSWORD}" != "true" ]; then
-                if bao kv get -mount=secret "${FULL_VAULT_PATH}" >/dev/null 2>&1; then
-                  echo "Secret ${FULL_VAULT_PATH} already exists, nothing to do."
-                  exit 0
-                fi
+              SECRET_EXISTS=false
+              if bao kv get -mount=secret "${FULL_VAULT_PATH}" >/dev/null 2>&1; then
+                SECRET_EXISTS=true
+              fi
+
+              property_missing() {
+                [ "${FORCE_ROTATE_PASSWORD}" = "true" ] && return 0
+                [ "${SECRET_EXISTS}" != "true" ] && return 0
+                ! bao kv get -mount=secret -field="$1" "${FULL_VAULT_PATH}" >/dev/null 2>&1
+              }
+
+              MISSING_COUNT=0
+              {{- range $i, $v := .Values.pushMappings }}
+              if property_missing "{{ $v.property }}"; then
+                MISSING_{{ $i }}=true
+                MISSING_COUNT=$((MISSING_COUNT + 1))
+              else
+                MISSING_{{ $i }}=false
+                echo "Property {{ $v.property }} already exists in ${FULL_VAULT_PATH}, skipping."
+              fi
+              {{- end }}
+
+              if [ "${MISSING_COUNT}" -eq 0 ]; then
+                echo "All properties already exist in ${FULL_VAULT_PATH}, nothing to do."
+                exit 0
               fi
 
               ##── Generate values ─────────────────────────────────────────
@@ -87,38 +107,47 @@ spec:
 
               {{- range $i, $v := .Values.pushMappings }}
               {{- if not $v.value }}
+              if [ "${MISSING_{{ $i }}}" = "true" ]; then
               {{- if $.Values.generator.override }}
               {{- if default false $v.need_plain }}
-              PLAIN_PASSWORD_{{ $i }}="$(openssl rand -base64 24 | tr -d '\n')"
-              PLAIN_PASSWORD="${PLAIN_PASSWORD_{{ $i }}}"
+                PLAIN_PASSWORD_{{ $i }}="$(openssl rand -base64 24 | tr -d '\n')"
+                PLAIN_PASSWORD="${PLAIN_PASSWORD_{{ $i }}}"
               {{- end }}
-              GENERATED_{{ $i }}="$({{ required "generator.command is required when generator.override is true" $.Values.generator.command | trimSuffix "\n" }})"
+                GENERATED_{{ $i }}="$({{ required "generator.command is required when generator.override is true" $.Values.generator.command | trimSuffix "\n" }})"
               {{- else }}
-              RANDOM_VALUE_{{ $i }}="$(openssl rand -base64 24 | tr -d '\n')"
+                RANDOM_VALUE_{{ $i }}="$(openssl rand -base64 24 | tr -d '\n')"
               {{- end }}
+              fi
               {{- end }}
               {{- end }}
 
               ##── Push to Bao ─────────────────────────────────────────────
-              echo "Storing secret ${FULL_VAULT_PATH}..."
+              echo "Storing ${MISSING_COUNT} property(ies) in ${FULL_VAULT_PATH}..."
               bao_args=()
               {{- range $i, $v := .Values.pushMappings }}
               {{- $needsPlain := and (not $v.value) (default false $v.need_plain) }}
+              if [ "${MISSING_{{ $i }}}" = "true" ]; then
               {{- if $v.value }}
-              bao_args+=( "{{ $v.property }}={{ $v.value }}" )
+                bao_args+=( "{{ $v.property }}={{ $v.value }}" )
               {{- else if $.Values.generator.override }}
-              bao_args+=( "{{ $v.property }}=${GENERATED_{{ $i }}}" )
+                bao_args+=( "{{ $v.property }}=${GENERATED_{{ $i }}}" )
               {{- if $needsPlain }}
-              bao_args+=( "{{ printf "%s.plain-password" $v.property }}=${PLAIN_PASSWORD_{{ $i }}}" )
+                bao_args+=( "{{ printf "%s.plain-password" $v.property }}=${PLAIN_PASSWORD_{{ $i }}}" )
               {{- end }}
               {{- else }}
-              bao_args+=( "{{ $v.property }}=${RANDOM_VALUE_{{ $i }}}" )
+                bao_args+=( "{{ $v.property }}=${RANDOM_VALUE_{{ $i }}}" )
               {{- if $needsPlain }}
-              bao_args+=( "{{ printf "%s.plain-password" $v.property }}=${RANDOM_VALUE_{{ $i }}}" )
+                bao_args+=( "{{ printf "%s.plain-password" $v.property }}=${RANDOM_VALUE_{{ $i }}}" )
               {{- end }}
               {{- end }}
+              fi
               {{- end }}
-              bao kv put -mount=secret "${FULL_VAULT_PATH}" "${bao_args[@]}"
+
+              if [ "${SECRET_EXISTS}" = "true" ]; then
+                bao kv patch -mount=secret "${FULL_VAULT_PATH}" "${bao_args[@]}"
+              else
+                bao kv put -mount=secret "${FULL_VAULT_PATH}" "${bao_args[@]}"
+              fi
 
               echo "[{{ .Values.clusterName }}] Done: ${FULL_VAULT_PATH}"
 {{- end }}
