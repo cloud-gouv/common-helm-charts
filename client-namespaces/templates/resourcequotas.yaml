@@ -11,6 +11,7 @@
     setting the maximum amount of resources that can be requested by all the pods
     in the namespace
 */}}
+    {{- if gt (len $.Values.clientNamespaces) 1 }}
     {{- $quota := (merge $clientNamespaceValue.quotas $.Values.defaults.quotas) }}
 ---
 apiVersion: v1
@@ -30,6 +31,7 @@ spec:
     count/daemonsets.apps: {{ $quota.countDaemonsets | quote }}
     requests.storage: {{ $quota.requestsStorage | quote }}
     persistentvolumeclaims: {{ $quota.persistentVolumeClaims | quote }}
+    {{- end }} {{/* if gt (len $.Values.clientNamespaces) 1 */}}
 
 {{/*
     LimitRanges for the 'clients'

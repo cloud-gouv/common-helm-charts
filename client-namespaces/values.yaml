@@ -46,6 +46,8 @@ defaults:
 # if 'rbac' is not empty then it will override the defaults
 # if 'quotas' is not empty then it will be merged with the defaults
 #    in this case values in 'quotas' will have precedence
+# ResourceQuotas are only created when there is more than one client namespace
+#    (a single client owns the whole cluster); the LimitRange is always applied
 clientNamespaces: {}
 # clientNamespaces:                     # list of 'client' namespaces for this cluster
 #   sample-1:                           # name of the namespace
