@@ -3,7 +3,7 @@ namespace: ""
 image:
   repository: rclone/rclone
   pullPolicy: IfNotPresent
-  tag: "1.72"
+  tag: "1.75.1"
 
 nameOverride: ""
 fullnameOverride: ""
