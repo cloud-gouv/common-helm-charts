@@ -3,7 +3,7 @@ namespace: ""
 image:
   repository: rclone/rclone
   pullPolicy: IfNotPresent
-  tag: "1.72"
+  tag: "1.75.2"
 
 nameOverride: ""
 fullnameOverride: ""
@@ -38,8 +38,8 @@ config: |
   [outscale-oos]
   type = s3
   provider = Outscale
-  access_key_id = 
-  secret_access_key = 
+  access_key_id =
+  secret_access_key =
   endpoint = https://oos.eu-west-2.outscale.com
   region = eu-west-1
   acl = private
@@ -50,23 +50,23 @@ config: |
   remote = outscale-oos:demo
   filename_encryption = standard
   directory_name_encryption = true
-  password = 
-  password2 = 
+  password =
+  password2 =
 
 service:
   name: rclone-backup-gateway
   type: ClusterIP
   port: 8080
 
-resources: 
+resources:
   limits:
-    memory: 128Mi
+    memory: 256Mi
   requests:
     cpu: 100m
-    memory: 128Mi
+    memory: 256Mi
 
 # Additional volumes on the output Deployment definition.
-volumes: 
+volumes:
   - name: rclone-config
     secret:
       secretName: rclone-config
