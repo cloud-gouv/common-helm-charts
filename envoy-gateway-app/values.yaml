@@ -396,6 +396,11 @@ clientTrafficPolicies:
   #         - Cert
   #         - Chain
   #
+  #   # Path handling for incoming client request paths
+  #   path:
+  #     escapedSlashesAction: UnescapeAndRedirect  # KeepUnchanged, RejectRequest, UnescapeAndForward, UnescapeAndRedirect (default)
+  #     disableMergeSlashes: false                 # true disables merging of adjacent slashes
+  #
   #   # Connection limits
   #   connection:
   #     connectionLimit:
