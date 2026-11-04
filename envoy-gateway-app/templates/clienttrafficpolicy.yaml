@@ -143,6 +143,16 @@ spec:
     {{- end }}
   {{- end }}
 
+  {{- with .path }}
+  path:
+    {{- with .escapedSlashesAction }}
+    escapedSlashesAction: {{ . }}
+    {{- end }}
+    {{- if hasKey . "disableMergeSlashes" }}
+    disableMergeSlashes: {{ .disableMergeSlashes }}
+    {{- end }}
+  {{- end }}
+
   {{- with .connection }}
   connection:
     {{- with .connectionLimit }}
