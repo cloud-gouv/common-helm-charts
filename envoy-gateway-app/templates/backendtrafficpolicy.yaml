@@ -57,6 +57,9 @@ spec:
   timeout:
     {{- with .http }}
     http:
+      {{- with .requestTimeout }}
+      requestTimeout: {{ . }}
+      {{- end }}
       {{- with .connectionIdleTimeout }}
       connectionIdleTimeout: {{ . }}
       {{- end }}

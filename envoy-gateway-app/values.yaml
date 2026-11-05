@@ -444,6 +444,7 @@ backendTrafficPolicies:
   #   # Timeouts
   #   timeout:
   #     http:
+  #       requestTimeout: "60s"
   #       connectionIdleTimeout: "300s"
   #       maxConnectionDuration: "3600s"
   #     tcp:
