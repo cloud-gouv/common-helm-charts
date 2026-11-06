@@ -1,40 +1,67 @@
 {{/*
-    this template aims at generating all the required network-policies for the 'clients'
+    this template aims at generating the CiliumNetworkPolicy for each 'client'
+    namespace: default-deny with explicit allows, protected from tenants
 */}}
 
 
-{{- range $clientNamespaceName, $_ := .Values.clientNamespaces }}
+{{- range $clientNamespaceName, $clientNs := .Values.clientNamespaces }}
   {{/* let's not process system namespaces */}}
   {{- if not (or (hasPrefix "kube-" $clientNamespaceName) (eq $clientNamespaceName "default")) }}
-
-{{/*
-  NetworkPolicies filtering the inbound traffic (from the perspective of the
-  namespace hosting this policy)
-*/}}
 ---
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
 metadata:
-  name: default-ingress
+  name: default-netpol-{{ $clientNamespaceName }}
   namespace: {{ $clientNamespaceName }}
   labels:
-    {{- include "client-namespaces.labels" $ | nindent 4 }}
+    netpol.opi/protected: "true"
 spec:
-  podSelector: {}                 # applies to all pods in the namespace hosting the policy
-  policyTypes:
-  - Ingress
+  endpointSelector: {}
   ingress:
-  - from:
-    - podSelector: {}             # target all pods in the namespaces selected below
-    - namespaceSelector:
-        matchLabels:
-          to-{{- $clientNamespaceName }}: "true"  # inbound traffic allowed from namespaces with this label
-    - namespaceSelector:
-        matchLabels:
-          access-to-all: "true"   # inbound traffic allowed from namespaces with this label too
-{{/*
-    NetworkPolicies filtering the outbound traffic (from the perspective of the
-    namespace hosting this policy)
-*/}}
+  - fromEndpoints:
+    - matchLabels:
+        k8s:io.cilium.k8s.namespace.labels.access-to-all: "true"
+    - matchLabels:
+        k8s:io.cilium.k8s.namespace.labels.access-to-{{ $clientNamespaceName }}: "true"
+    - matchLabels:
+        k8s:io.cilium.k8s.namespace.labels.to-{{ $clientNamespaceName }}: "true"
+  # multi-pod apps in the same namespace must reach each other
+  - fromEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: "{{ $clientNamespaceName }}"
+  egress:
+  # traffic inside the client namespace (app <-> postgres, minio, ...)
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: "{{ $clientNamespaceName }}"
+  # DNS
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s:k8s-app: kube-dns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      - port: "53"
+        protocol: TCP
+{{- if eq (index (index $clientNs "labels" | default dict) "access-to-apiserver" | default "false") "true" }}
+  # temporary: to be removed once France-Transfert redis backup / Tchap / Grist no longer need the api-server
+  - toEntities:
+    - kube-apiserver
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+      - port: "6443"
+        protocol: TCP
+{{- end }}
+  # dedicated services for this client (ns labeled to-<client>)
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.cilium.k8s.namespace.labels.to-{{ $clientNamespaceName }}: "true"
+  # external traffic (toCIDR only matches non-endpoint destinations, cluster-internal stays denied)
+  - toCIDR:
+    - 0.0.0.0/0
   {{- end }}
 {{- end }}
