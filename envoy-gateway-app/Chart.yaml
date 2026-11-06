@@ -5,7 +5,7 @@ description: |
   SecurityPolicy, BackendTLSPolicy, BackendLBPolicy, ClientTrafficPolicy,
   EnvoyPatchPolicy, HTTPRouteFilter and RateLimitFilter.
 type: application
-version: 1.1.1
+version: 1.1.2
 appVersion: "1.9.2"
 keywords:
   - envoy
