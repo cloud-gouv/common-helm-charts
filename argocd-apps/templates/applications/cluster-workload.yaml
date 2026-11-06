@@ -71,8 +71,7 @@ spec:
       name: prometheus-adapter-client
       jsonPointers:
         - /data/config.yaml      
-    - group: ""
-      kind: Secret
+    - kind: Secret
       name: argocd-secret
       namespace: argocd
       jsonPointers:

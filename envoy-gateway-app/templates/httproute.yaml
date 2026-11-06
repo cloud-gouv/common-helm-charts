@@ -65,8 +65,8 @@ spec:
           {{- with .weight }}
           weight: {{ . }}
           {{- end }}
-          {{- with .group }}
-          group: {{ . }}
+          {{- if not (.group | quote | empty) }}
+          group: {{ .group | quote }}
           {{- end }}
           {{- with .kind }}
           kind: {{ . }}
