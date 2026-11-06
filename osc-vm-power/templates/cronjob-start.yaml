@@ -41,6 +41,12 @@ spec:
                 - configMapRef:
                     name: {{ include "osc-vm-power.fullname" . }}-config
               env:
+                - name: JOB_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.labels['job-name']
+                - name: MAX_JOB_DELAY_SECONDS
+                  value: {{ .Values.maxJobDelaySeconds | quote }}
                 - name: OSC_ACCESS_KEY
                   valueFrom:
                     secretKeyRef:

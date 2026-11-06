@@ -1,6 +1,6 @@
 image:
   repository: ghcr.io/cloud-gouv/outscale-vm-power
-  tag: f76ef39
+  tag: 7ed53b7
   pullPolicy: IfNotPresent
 
 # Secret kubernetes.io/dockerconfigjson créé par le chart pour tirer l'image depuis
@@ -73,6 +73,7 @@ backoffLimit: 1
 # Filet de sécurité : si le pod meurt sans jamais remonter d'état, le Job passe en
 # Failed au lieu de rester bloqué indéfiniment une fois le contrôleur de retour.
 activeDeadlineSeconds: 600
+maxJobDelaySeconds: 600
 successfulJobsHistoryLimit: 3
 failedJobsHistoryLimit: 3
 
