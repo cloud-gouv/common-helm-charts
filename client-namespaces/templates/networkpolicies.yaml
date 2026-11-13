@@ -22,8 +22,6 @@ spec:
     - matchLabels:
         k8s:io.cilium.k8s.namespace.labels.access-to-all: "true"
     - matchLabels:
-        k8s:io.cilium.k8s.namespace.labels.access-to-{{ $clientNamespaceName }}: "true"
-    - matchLabels:
         k8s:io.cilium.k8s.namespace.labels.to-{{ $clientNamespaceName }}: "true"
   # multi-pod apps in the same namespace must reach each other
   - fromEndpoints:
