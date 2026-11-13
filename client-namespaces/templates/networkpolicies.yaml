@@ -11,7 +11,7 @@
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  name: default-netpol-{{ $clientNamespaceName }}
+  name: default-netpol
   namespace: {{ $clientNamespaceName }}
   labels:
     netpol.opi/protected: "true"
