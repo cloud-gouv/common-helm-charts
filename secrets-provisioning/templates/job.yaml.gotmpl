@@ -75,9 +75,7 @@ spec:
               echo "Token capabilities OK."
 
               ##── Already exists? ─────────────────────────────────────────
-              # Distinguish "secret does not exist" from any other error
-              # (permissions, network, sealed Bao...). Only the former is
-              # treated as missing; anything else aborts the job.
+              # Distinguish "secret does not exist" from any other error.
               SECRET_EXISTS=false
               SECRET_ERR=""
               if SECRET_ERR="$(bao kv get -mount=secret "${FULL_VAULT_PATH}" 2>&1 >/dev/null)"; then
