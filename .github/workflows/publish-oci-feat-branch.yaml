@@ -164,7 +164,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          repo="oci://ghcr.io/${OWNER,,}/common-helm-charts"
+          repo="oci://ghcr.io/${OWNER,,}/helm"
 
           mkdir -p dist
 
