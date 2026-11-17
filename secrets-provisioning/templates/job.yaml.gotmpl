@@ -75,15 +75,32 @@ spec:
               echo "Token capabilities OK."
 
               ##── Already exists? ─────────────────────────────────────────
+              # Distinguish "secret does not exist" from any other error.
               SECRET_EXISTS=false
-              if bao kv get -mount=secret "${FULL_VAULT_PATH}" >/dev/null 2>&1; then
+              SECRET_ERR=""
+              if SECRET_ERR="$(bao kv get -mount=secret "${FULL_VAULT_PATH}" 2>&1 >/dev/null)"; then
                 SECRET_EXISTS=true
+              elif echo "$SECRET_ERR" | grep -qi "no value found at"; then
+                echo "Secret ${FULL_VAULT_PATH} does not exist yet, it will be created."
+              else
+                echo "ERROR: unable to read ${FULL_VAULT_PATH} from Bao:" >&2
+                echo "$SECRET_ERR" >&2
+                exit 1
               fi
 
               property_missing() {
                 [ "${FORCE_ROTATE_PASSWORD}" = "true" ] && return 0
                 [ "${SECRET_EXISTS}" != "true" ] && return 0
-                ! bao kv get -mount=secret -field="$1" "${FULL_VAULT_PATH}" >/dev/null 2>&1
+                local err
+                if err="$(bao kv get -mount=secret -field="$1" "${FULL_VAULT_PATH}" 2>&1 >/dev/null)"; then
+                  return 1
+                fi
+                if echo "$err" | grep -qi "not present in secret"; then
+                  return 0
+                fi
+                echo "ERROR: unable to read property $1 of ${FULL_VAULT_PATH} from Bao:" >&2
+                echo "$err" >&2
+                exit 1
               }
 
               MISSING_COUNT=0
@@ -110,12 +127,12 @@ spec:
               if [ "${MISSING_{{ $i }}}" = "true" ]; then
               {{- if $.Values.generator.override }}
               {{- if default false $v.need_plain }}
-                PLAIN_PASSWORD_{{ $i }}="$(openssl rand -base64 24 | tr -d '\n')"
+                PLAIN_PASSWORD_{{ $i }}="$(openssl rand -base64 32 | tr -d '/+=\n')"
                 PLAIN_PASSWORD="${PLAIN_PASSWORD_{{ $i }}}"
               {{- end }}
                 GENERATED_{{ $i }}="$({{ required "generator.command is required when generator.override is true" $.Values.generator.command | trimSuffix "\n" }})"
               {{- else }}
-                RANDOM_VALUE_{{ $i }}="$(openssl rand -base64 24 | tr -d '\n')"
+                RANDOM_VALUE_{{ $i }}="$(openssl rand -base64 32 | tr -d '/+=\n')"
               {{- end }}
               fi
               {{- end }}
