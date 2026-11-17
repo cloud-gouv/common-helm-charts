@@ -127,7 +127,7 @@ spec:
               if [ "${MISSING_{{ $i }}}" = "true" ]; then
               {{- if $.Values.generator.override }}
               {{- if default false $v.need_plain }}
-                PLAIN_PASSWORD_{{ $i }}="$(openssl rand -hex 24)"
+                PLAIN_PASSWORD_{{ $i }}="$(openssl rand -base64 32 | tr -d '/+=\n')"
                 PLAIN_PASSWORD="${PLAIN_PASSWORD_{{ $i }}}"
               {{- end }}
                 GENERATED_{{ $i }}="$({{ required "generator.command is required when generator.override is true" $.Values.generator.command | trimSuffix "\n" }})"
