@@ -132,7 +132,7 @@ spec:
               {{- end }}
                 GENERATED_{{ $i }}="$({{ required "generator.command is required when generator.override is true" $.Values.generator.command | trimSuffix "\n" }})"
               {{- else }}
-                RANDOM_VALUE_{{ $i }}="$(openssl rand -hex 24)"
+                RANDOM_VALUE_{{ $i }}="$(openssl rand -base64 32 | tr -d '/+=\n')"
               {{- end }}
               fi
               {{- end }}
