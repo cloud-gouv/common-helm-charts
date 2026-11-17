@@ -32,6 +32,9 @@ jobs:
       packages: write
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
       - name: Delete stale test versions
         env:
           # GITHUB_TOKEN suffit si les packages sont bien lies a ce repo.
@@ -86,13 +89,15 @@ jobs:
           cutoff_epoch=$(( $(date -u +%s) - max_age_days * 86400 ))
 
           # --- Lister les packages du repo OCI ----------------------------------
+          charts="$(ls -d */Chart.yaml | sed 's|^|helm/|; s|/Chart.yaml$||')"
+
           packages="$(gh api --paginate \
             "/orgs/${owner}/packages?package_type=container" \
             --jq '.[].name' \
-            | grep '^common-helm-charts/' || true)"
+            | grep -Fx "$charts" || true)"
 
           if [ -z "$packages" ]; then
-            echo "Aucun package common-helm-charts/* trouve"
+            echo "Aucun package helm/* de ce repo trouve"
             exit 0
           fi
 
