@@ -462,7 +462,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "## Gérer les silences (on / off)\n\nLe plugin camptocamp est **read-only** : il affiche les silences mais ne peut pas en créer depuis le dashboard.\n\nPour **activer** ou **lever** un silence :\n\n[Alerting → Silences](/alerting/silences)\n\n(les deux Alertmanagers `obs cluster` et `ppr clusters` y sont connectés)",
+        "content": "## Gérer les silences (on / off)\n\nLe plugin camptocamp est **read-only** : il affiche les silences mais ne peut pas en créer depuis le dashboard.\n\nPour **activer** ou **lever** un silence :\n\n[Alerting → Silences](/alerting/silences)",
         "contentMode": "markdown",
         "mode": "markdown"
       },
