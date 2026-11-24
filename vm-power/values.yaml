@@ -1,6 +1,6 @@
 image:
   repository: ghcr.io/cloud-gouv/vm-power
-  tag: 7c1f4be
+  tag: 932f939
   pullPolicy: Always
 
 imagePullSecret:
