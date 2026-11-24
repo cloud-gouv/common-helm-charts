@@ -8,6 +8,14 @@
       "type": "string",
       "enum": ["outscale", "nubo"]
     },
+    "capi": {
+      "type": "object",
+      "required": ["clusterName"],
+      "properties": {
+        "clusterName": { "type": "string" },
+        "apiVersion": { "type": "string" }
+      }
+    },
     "nubo": {
       "type": "object",
       "properties": {

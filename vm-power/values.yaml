@@ -23,15 +23,13 @@ serviceAccount:
 # Cloud des workers : outscale (StopVms / StartVms) ou nubo (MachineDeployment à 0 replica).
 provider: outscale
 
+# La release est installée sur le cluster de management et n'agit que sur un seul
+# cluster workload : une release par cluster à éteindre la nuit.
 capi:
+  # Obligatoire : nom du cluster ciblé (label cluster.x-k8s.io/cluster-name).
+  clusterName: ""
   # Version de l'API cluster.x-k8s.io. Vide = détectée au démarrage (v1beta1 / v1beta2).
   apiVersion: ""
-  # Sous-chaînes du nom de cluster (label cluster.x-k8s.io/cluster-name) à exclure du
-  # start/stop, ex. le cluster mgmt. Liste vide pour inclure aussi le mgmt.
-  excludedClusterSubstrings: []
-  #  - mgmt
-  #  - lve
-  #  - swa
 
 # provider: outscale uniquement.
 outscale:

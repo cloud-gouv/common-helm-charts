@@ -8,7 +8,7 @@ metadata:
 data:
   PROVIDER: {{ .Values.provider | quote }}
   CAPI_API_VERSION: {{ .Values.capi.apiVersion | quote }}
-  EXCLUDED_CLUSTER_SUBSTRINGS: {{ .Values.capi.excludedClusterSubstrings | join "," | quote }}
+  CLUSTER_NAME: {{ required "capi.clusterName est obligatoire : nom du cluster workload à arrêter/démarrer" .Values.capi.clusterName | quote }}
   DRY_RUN: {{ .Values.dryRun | quote }}
   NO_WAIT: {{ not .Values.wait.enabled | quote }}
   POLL_INTERVAL_SECONDS: {{ .Values.wait.pollIntervalSeconds | quote }}

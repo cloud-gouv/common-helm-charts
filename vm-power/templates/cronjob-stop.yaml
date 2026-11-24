@@ -5,7 +5,6 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "vm-power.labels" . | nindent 4 }}
-{{- $mgmtExcluded := has "mgmt" .Values.capi.excludedClusterSubstrings }}
 spec:
   schedule: {{ .Values.schedule.stop | quote }}
   timeZone: {{ .Values.schedule.timeZone | quote }}
@@ -15,9 +14,7 @@ spec:
   failedJobsHistoryLimit: {{ .Values.failedJobsHistoryLimit }}
   jobTemplate:
     spec:
-      # mgmt exclu -> pas de self-stop possible, retries normaux. mgmt inclus -> le
-      # Job peut s'arrêter lui-même, donc pas de retry pour éviter la boucle infinie.
-      backoffLimit: {{ if $mgmtExcluded }}{{ .Values.backoffLimit }}{{ else }}0{{ end }}
+      backoffLimit: {{ .Values.backoffLimit }}
       activeDeadlineSeconds: {{ .Values.activeDeadlineSeconds }}
       template:
         metadata:

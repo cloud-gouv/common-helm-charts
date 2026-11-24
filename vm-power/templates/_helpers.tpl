@@ -5,6 +5,8 @@
 {{- define "vm-power.fullname" -}}
 {{- if .Values.fullnameOverride -}}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- else if contains (include "vm-power.name" .) .Release.Name -}}
+{{- .Release.Name | trunc 63 | trimSuffix "-" -}}
 {{- else -}}
 {{- printf "%s-%s" .Release.Name (include "vm-power.name" .) | trunc 63 | trimSuffix "-" -}}
 {{- end -}}

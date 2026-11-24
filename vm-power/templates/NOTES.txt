@@ -1,4 +1,4 @@
-vm-power (provider {{ .Values.provider }}) a été déployé dans le namespace {{ .Release.Namespace }}.
+vm-power (provider {{ .Values.provider }}, cluster {{ .Values.capi.clusterName }}) a été déployé dans le namespace {{ .Release.Namespace }}.
 
 CronJobs :
   - {{ include "vm-power.fullname" . }}-stop  ({{ .Values.schedule.stop }} {{ .Values.schedule.timeZone }})
