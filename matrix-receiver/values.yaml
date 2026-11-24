@@ -8,8 +8,7 @@ receiver:
     userId: ''
     accessToken: secret
     # define short names for Matrix room ID
-    roomMapping:
-      default: ''
+    roomMapping: {}
   computedValues:
     - values: # always set 'color' to 'yellow'
         color: yellow
