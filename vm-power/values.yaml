@@ -1,0 +1,106 @@
+image:
+  repository: ghcr.io/cloud-gouv/vm-power
+  tag: 5cb15e5
+  pullPolicy: Always
+
+imagePullSecret:
+  create: false
+  name: regcred-opicloud
+  registry: ghcr.io
+  username: ""
+  password: ""
+
+imagePullSecrets: []
+#  - name: ghcr-creds
+
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  # Defaults to the chart fullname when empty.
+  name: ""
+
+# Cloud des workers : outscale (StopVms / StartVms) ou nubo (MachineDeployment à 0 replica).
+provider: outscale
+
+capi:
+  # Version de l'API cluster.x-k8s.io. Vide = détectée au démarrage (v1beta1 / v1beta2).
+  apiVersion: ""
+  # Sous-chaînes du nom de cluster (label cluster.x-k8s.io/cluster-name) à exclure du
+  # start/stop, ex. le cluster mgmt. Liste vide pour inclure aussi le mgmt.
+  excludedClusterSubstrings: []
+  #  - mgmt
+  #  - lve
+  #  - swa
+
+# provider: outscale uniquement.
+outscale:
+  region: eu-west-2
+  secret:
+    # Si false, `name` doit référencer un Secret existant, avec les clés accessKeyKey/secretKeyKey ci-dessous.
+    create: false
+    name: cluster-api-provider-outscale
+    # Jamais de credentials ici
+    accessKey: ""
+    secretKey: ""
+    # Noms des clés dans le Secret (existant ou créé par le chart).
+    accessKeyKey: access_key
+    secretKeyKey: secret_key
+
+# provider: nubo uniquement.
+nubo:
+  # Replicas appliqués au start quand une MachineDeployment est à 0 sans annotation
+  # de sauvegarde (0 = la laisser à 0).
+  fallbackReplicas: 1
+  # Si true, les Machines sont supprimées sans drain ni attente du détachement des volumes.
+  skipNodeDrain: false
+
+# Attente de la convergence (VMs dans l'état visé / Machines supprimées ou Ready).
+wait:
+  enabled: true
+  pollIntervalSeconds: 15
+  # Vide = défaut du provider : 300 s (outscale), 900 s (nubo). Rester sous activeDeadlineSeconds.
+  timeoutSeconds: ""
+
+schedule:
+  timeZone: "Europe/Paris"
+  start: "0 8 * * 1-5"
+  stop: "0 20 * * 1-5"
+
+# Si false, le CronJob de démarrage est suspendu : les workers restent éteints après le stop
+startEnabled: false
+
+# Si false, le CronJob d'arrêt est suspendu : les workers ne sont plus coupés automatiquement.
+stopEnabled: true
+
+# Si true, les Jobs font valider les appels par l'API (DryRun) sans rien arrêter/démarrer.
+dryRun: false
+
+concurrencyPolicy: Forbid
+backoffLimit: 1
+
+activeDeadlineSeconds: 1200
+successfulJobsHistoryLimit: 3
+failedJobsHistoryLimit: 3
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  privileged: false
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
+resources: {}

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["provider"],
+  "properties": {
+    "provider": {
+      "description": "Cloud des workers. Ajouter ici tout nouveau provider de l'image vm-power.",
+      "type": "string",
+      "enum": ["outscale", "nubo"]
+    },
+    "nubo": {
+      "type": "object",
+      "properties": {
+        "fallbackReplicas": { "type": "integer", "minimum": 0 },
+        "skipNodeDrain": { "type": "boolean" }
+      }
+    },
+    "wait": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "pollIntervalSeconds": { "type": "integer", "minimum": 1 },
+        "timeoutSeconds": { "type": ["integer", "string"] }
+      }
+    }
+  }
+}

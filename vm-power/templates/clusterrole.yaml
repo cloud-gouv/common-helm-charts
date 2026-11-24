@@ -1,0 +1,23 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "vm-power.fullname" . }}
+  labels:
+    {{- include "vm-power.labels" . | nindent 4 }}
+rules:
+  {{- if eq .Values.provider "outscale" }}
+  # Lecture des Machines pour retrouver les VMs (spec.providerID).
+  - apiGroups: ["cluster.x-k8s.io"]
+    resources: ["machines"]
+    verbs: ["get", "list"]
+  {{- end }}
+  {{- if eq .Values.provider "nubo" }}
+  # Scale à 0 / restauration des MachineDeployment.
+  - apiGroups: ["cluster.x-k8s.io"]
+    resources: ["machinedeployments"]
+    verbs: ["get", "list", "patch"]
+  # Annotations exclude-node-draining / exclude-wait-for-node-volume-detach (nubo.skipNodeDrain).
+  - apiGroups: ["cluster.x-k8s.io"]
+    resources: ["machines"]
+    verbs: ["list", "patch"]
+  {{- end }}
