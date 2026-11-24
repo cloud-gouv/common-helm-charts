@@ -1,14 +1,14 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: {{ include "osc-vm-power.fullname" . }}-start
+  name: {{ include "vm-power.fullname" . }}-stop
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "osc-vm-power.labels" . | nindent 4 }}
+    {{- include "vm-power.labels" . | nindent 4 }}
 spec:
-  schedule: {{ .Values.schedule.start | quote }}
+  schedule: {{ .Values.schedule.stop | quote }}
   timeZone: {{ .Values.schedule.timeZone | quote }}
-  suspend: {{ not .Values.startEnabled }}
+  suspend: {{ not .Values.stopEnabled }}
   concurrencyPolicy: {{ .Values.concurrencyPolicy }}
   successfulJobsHistoryLimit: {{ .Values.successfulJobsHistoryLimit }}
   failedJobsHistoryLimit: {{ .Values.failedJobsHistoryLimit }}
@@ -19,38 +19,40 @@ spec:
       template:
         metadata:
           labels:
-            {{- include "osc-vm-power.labels" . | nindent 12 }}
+            {{- include "vm-power.labels" . | nindent 12 }}
         spec:
-          {{- include "osc-vm-power.imagePullSecrets" . | nindent 10 }}
-          serviceAccountName: {{ include "osc-vm-power.serviceAccountName" . }}
+          {{- include "vm-power.imagePullSecrets" . | nindent 10 }}
+          serviceAccountName: {{ include "vm-power.serviceAccountName" . }}
           restartPolicy: Never
           {{- with .Values.podSecurityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           containers:
-            - name: {{ include "osc-vm-power.fullname" . }}-start
+            - name: {{ include "vm-power.fullname" . }}-stop
               image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
               imagePullPolicy: {{ .Values.image.pullPolicy }}
-              args: ["start"]
+              args: ["stop"]
               {{- with .Values.securityContext }}
               securityContext:
                 {{- toYaml . | nindent 16 }}
               {{- end }}
               envFrom:
                 - configMapRef:
-                    name: {{ include "osc-vm-power.fullname" . }}-config
+                    name: {{ include "vm-power.fullname" . }}-config
+              {{- if eq .Values.provider "outscale" }}
               env:
                 - name: OSC_ACCESS_KEY
                   valueFrom:
                     secretKeyRef:
-                      name: {{ .Values.secret.name }}
-                      key: {{ .Values.secret.accessKeyKey }}
+                      name: {{ .Values.outscale.secret.name }}
+                      key: {{ .Values.outscale.secret.accessKeyKey }}
                 - name: OSC_SECRET_KEY
                   valueFrom:
                     secretKeyRef:
-                      name: {{ .Values.secret.name }}
-                      key: {{ .Values.secret.secretKeyKey }}
+                      name: {{ .Values.outscale.secret.name }}
+                      key: {{ .Values.outscale.secret.secretKeyKey }}
+              {{- end }}
               {{- with .Values.resources }}
               resources:
                 {{- toYaml . | nindent 16 }}

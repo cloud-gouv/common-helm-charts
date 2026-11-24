@@ -1,0 +1,6 @@
+apiVersion: v2
+name: vm-power
+description: Stop/start scheduler for the worker nodes of Cluster API clusters (Outscale VMs, nubo MachineDeployments)
+type: application
+version: 2.0.0
+appVersion: "2.0.0"
